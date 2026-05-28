@@ -1,0 +1,231 @@
+import { Router, type IRouter } from "express";
+import { db } from "@workspace/db";
+import {
+  songsTable,
+  boardEntriesTable,
+} from "@workspace/db";
+import { eq, ilike, or, and, sql } from "drizzle-orm";
+import {
+  ListSongsQueryParams,
+  CreateSongBody,
+  GetSongParams,
+  UpdateSongParams,
+  UpdateSongBody,
+  DeleteSongParams,
+  PromoteSongParams,
+  PromoteSongBody,
+  TagSongParams,
+  TagSongBody,
+} from "@workspace/api-zod";
+
+const router: IRouter = Router();
+
+function toSongResponse(s: typeof songsTable.$inferSelect) {
+  return {
+    id: s.id,
+    title: s.title,
+    artist: s.artist,
+    album: s.album,
+    duration: s.duration,
+    coverUrl: s.coverUrl,
+    source: s.source,
+    sourceUrl: s.sourceUrl,
+    storageType: s.storageType,
+    category: s.category,
+    tags: s.tags,
+    userId: s.userId,
+    expiresAt: s.expiresAt ? s.expiresAt.toISOString() : null,
+    voteCount: s.voteCount,
+    isPublic: s.isPublic,
+    createdAt: s.createdAt.toISOString(),
+  };
+}
+
+router.get("/songs", async (req, res): Promise<void> => {
+  const params = ListSongsQueryParams.safeParse(req.query);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const { category, storageType, sort, search, limit = 50, offset = 0 } = params.data;
+
+  let query = db.select().from(songsTable).$dynamic();
+
+  const conditions = [];
+  if (category) conditions.push(eq(songsTable.category, category));
+  if (storageType) conditions.push(eq(songsTable.storageType, storageType));
+  if (search) {
+    conditions.push(
+      or(
+        ilike(songsTable.title, `%${search}%`),
+        ilike(songsTable.artist, `%${search}%`)
+      )!
+    );
+  }
+  if (conditions.length > 0) query = query.where(and(...conditions));
+
+  const limitNum = typeof limit === "string" ? parseInt(limit, 10) : (limit ?? 50);
+  const offsetNum = typeof offset === "string" ? parseInt(offset, 10) : (offset ?? 0);
+
+  const songs = await query.limit(limitNum).offset(offsetNum);
+  res.json(songs.map(toSongResponse));
+});
+
+router.post("/songs", async (req, res): Promise<void> => {
+  const parsed = CreateSongBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const data = parsed.data;
+  const expiresAt =
+    data.storageType === "limited" || data.storageType === "public_limited"
+      ? new Date(Date.now() + 48 * 60 * 60 * 1000)
+      : null;
+
+  const [song] = await db
+    .insert(songsTable)
+    .values({
+      title: data.title,
+      artist: data.artist,
+      album: data.album ?? null,
+      duration: data.duration ?? null,
+      coverUrl: data.coverUrl ?? null,
+      source: data.source,
+      sourceUrl: data.sourceUrl,
+      storageType: data.storageType,
+      category: data.category ?? "general",
+      tags: data.tags ?? [],
+      userId: data.userId,
+      isPublic: data.isPublic ?? false,
+      expiresAt,
+      voteCount: 0,
+    })
+    .returning();
+
+  res.status(201).json(toSongResponse(song));
+});
+
+router.get("/songs/:id", async (req, res): Promise<void> => {
+  const params = GetSongParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const [song] = await db.select().from(songsTable).where(eq(songsTable.id, params.data.id));
+  if (!song) {
+    res.status(404).json({ error: "Song not found" });
+    return;
+  }
+  res.json(toSongResponse(song));
+});
+
+router.patch("/songs/:id", async (req, res): Promise<void> => {
+  const params = UpdateSongParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const parsed = UpdateSongBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const update: Record<string, unknown> = {};
+  const d = parsed.data;
+  if (d.title !== undefined) update.title = d.title;
+  if (d.artist !== undefined) update.artist = d.artist;
+  if (d.album !== undefined) update.album = d.album;
+  if (d.coverUrl !== undefined) update.coverUrl = d.coverUrl;
+  if (d.category !== undefined) update.category = d.category;
+  if (d.tags !== undefined) update.tags = d.tags;
+  if (d.storageType !== undefined) {
+    update.storageType = d.storageType;
+    if (d.storageType === "permanent" || d.storageType === "public_download") {
+      update.expiresAt = null;
+    }
+  }
+
+  const [song] = await db.update(songsTable).set(update).where(eq(songsTable.id, params.data.id)).returning();
+  if (!song) {
+    res.status(404).json({ error: "Song not found" });
+    return;
+  }
+  res.json(toSongResponse(song));
+});
+
+router.delete("/songs/:id", async (req, res): Promise<void> => {
+  const params = DeleteSongParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const [song] = await db.delete(songsTable).where(eq(songsTable.id, params.data.id)).returning();
+  if (!song) {
+    res.status(404).json({ error: "Song not found" });
+    return;
+  }
+  res.sendStatus(204);
+});
+
+router.post("/songs/:id/promote", async (req, res): Promise<void> => {
+  const params = PromoteSongParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const parsed = PromoteSongBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const [song] = await db
+    .update(songsTable)
+    .set({ storageType: parsed.data.targetStorage, expiresAt: null })
+    .where(eq(songsTable.id, params.data.id))
+    .returning();
+
+  if (!song) {
+    res.status(404).json({ error: "Song not found" });
+    return;
+  }
+  res.json(toSongResponse(song));
+});
+
+router.post("/songs/:id/tags", async (req, res): Promise<void> => {
+  const params = TagSongParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const parsed = TagSongBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const [existing] = await db.select().from(songsTable).where(eq(songsTable.id, params.data.id));
+  if (!existing) {
+    res.status(404).json({ error: "Song not found" });
+    return;
+  }
+
+  const newTags = Array.from(new Set([...existing.tags, parsed.data.tag]));
+  const [song] = await db.update(songsTable).set({ tags: newTags }).where(eq(songsTable.id, params.data.id)).returning();
+  res.json(toSongResponse(song));
+});
+
+router.get("/categories", async (_req, res): Promise<void> => {
+  const rows = await db
+    .select({ category: songsTable.category, count: sql<number>`count(*)::int` })
+    .from(songsTable)
+    .groupBy(songsTable.category);
+
+  res.json(rows.map((r) => ({ name: r.category, count: r.count })));
+});
+
+export default router;
+export { toSongResponse };

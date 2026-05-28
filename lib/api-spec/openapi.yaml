@@ -3,20 +3,40 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: SoundBoard - Community Music PWA API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: songs
+    description: Song management
+  - name: search
+    description: Music search
+  - name: library
+    description: User library and categories
+  - name: playlists
+    description: Playlist management
+  - name: songboard
+    description: Song board voting
+  - name: queue
+    description: Mixed queue
+  - name: daily
+    description: Daily playlist
+  - name: forum
+    description: Recommendation board
+  - name: users
+    description: User profiles
+  - name: stats
+    description: Dashboard stats
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +44,1201 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ── Songs ──────────────────────────────────────────────────────────────────
+
+  /songs:
+    get:
+      operationId: listSongs
+      tags: [songs]
+      summary: List songs in library
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: storageType
+          in: query
+          schema:
+            type: string
+        - name: sort
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Song list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Song"
+    post:
+      operationId: createSong
+      tags: [songs]
+      summary: Add a song to the library
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SongInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Song"
+
+  /songs/{id}:
+    get:
+      operationId: getSong
+      tags: [songs]
+      summary: Get a song by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Song
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Song"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateSong
+      tags: [songs]
+      summary: Update song metadata
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SongUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Song"
+    delete:
+      operationId: deleteSong
+      tags: [songs]
+      summary: Delete a song
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /songs/{id}/promote:
+    post:
+      operationId: promoteSong
+      tags: [songs]
+      summary: Promote song from limited to permanent
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PromoteInput"
+      responses:
+        "200":
+          description: Promoted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Song"
+
+  # ── Search ─────────────────────────────────────────────────────────────────
+
+  /search/youtube:
+    get:
+      operationId: searchYoutube
+      tags: [search]
+      summary: Search YouTube for songs
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SearchResult"
+
+  /search/soundcloud:
+    get:
+      operationId: searchSoundcloud
+      tags: [search]
+      summary: Search SoundCloud for songs
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SearchResult"
+
+  /search/import:
+    post:
+      operationId: importFromSearch
+      tags: [search]
+      summary: Import a search result into the library as a limited song
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportInput"
+      responses:
+        "201":
+          description: Imported
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Song"
+
+  # ── Categories ─────────────────────────────────────────────────────────────
+
+  /categories:
+    get:
+      operationId: listCategories
+      tags: [library]
+      summary: List all categories with song counts
+      responses:
+        "200":
+          description: Categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+
+  /songs/{id}/tags:
+    post:
+      operationId: tagSong
+      tags: [library]
+      summary: Add a mood/category tag to a song
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TagInput"
+      responses:
+        "200":
+          description: Tagged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Song"
+
+  # ── Playlists ──────────────────────────────────────────────────────────────
+
+  /playlists:
+    get:
+      operationId: listPlaylists
+      tags: [playlists]
+      summary: List user playlists
+      parameters:
+        - name: userId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Playlists
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Playlist"
+    post:
+      operationId: createPlaylist
+      tags: [playlists]
+      summary: Create a playlist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlaylistInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Playlist"
+
+  /playlists/{id}:
+    get:
+      operationId: getPlaylist
+      tags: [playlists]
+      summary: Get playlist with songs
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Playlist
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Playlist"
+    delete:
+      operationId: deletePlaylist
+      tags: [playlists]
+      summary: Delete a playlist
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /playlists/{id}/songs:
+    post:
+      operationId: addSongToPlaylist
+      tags: [playlists]
+      summary: Add a song to a playlist
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlaylistSongInput"
+      responses:
+        "200":
+          description: Added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Playlist"
+
+  /playlists/{id}/songs/{songId}:
+    delete:
+      operationId: removeSongFromPlaylist
+      tags: [playlists]
+      summary: Remove a song from a playlist
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: songId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Removed
+
+  # ── Song Board ─────────────────────────────────────────────────────────────
+
+  /songboard:
+    get:
+      operationId: listSongBoard
+      tags: [songboard]
+      summary: List song board entries
+      parameters:
+        - name: tab
+          in: query
+          schema:
+            type: string
+            enum: [hot, legends, mini]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Song board
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BoardEntry"
+
+  /songboard/{songId}/vote:
+    post:
+      operationId: voteSong
+      tags: [songboard]
+      summary: Vote for a song on the board
+      parameters:
+        - name: songId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoteInput"
+      responses:
+        "200":
+          description: Voted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BoardEntry"
+
+  /songboard/{songId}/nominate:
+    post:
+      operationId: nominateSong
+      tags: [songboard]
+      summary: Nominate a song to the board
+      parameters:
+        - name: songId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NominationInput"
+      responses:
+        "201":
+          description: Nominated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BoardEntry"
+
+  # ── Mixed Queue ────────────────────────────────────────────────────────────
+
+  /queue:
+    get:
+      operationId: getQueue
+      tags: [queue]
+      summary: Get the current mixed queue
+      responses:
+        "200":
+          description: Queue
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/QueueEntry"
+    post:
+      operationId: addToQueue
+      tags: [queue]
+      summary: Add a song to the mixed queue
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QueueInput"
+      responses:
+        "201":
+          description: Added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueueEntry"
+
+  /queue/{id}/veto:
+    post:
+      operationId: vetoQueueEntry
+      tags: [queue]
+      summary: Veto/skip a song in the mixed queue
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VetoInput"
+      responses:
+        "200":
+          description: Vetoed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueueEntry"
+
+  /queue/{id}:
+    delete:
+      operationId: removeFromQueue
+      tags: [queue]
+      summary: Remove a song from the queue (after playing)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Removed
+
+  # ── Daily Playlist ─────────────────────────────────────────────────────────
+
+  /daily:
+    get:
+      operationId: getDailyPlaylist
+      tags: [daily]
+      summary: Get today's daily playlist
+      responses:
+        "200":
+          description: Daily playlist songs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DailyEntry"
+
+  /daily/submit:
+    post:
+      operationId: submitToDaily
+      tags: [daily]
+      summary: Submit a song to today's daily playlist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DailyInput"
+      responses:
+        "201":
+          description: Submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyEntry"
+
+  /daily/archive:
+    get:
+      operationId: getDailyArchive
+      tags: [daily]
+      summary: Get archived daily playlists
+      parameters:
+        - name: date
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Archived dates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DailyEntry"
+
+  # ── Recommendation Board (Forum) ───────────────────────────────────────────
+
+  /forum:
+    get:
+      operationId: listForumMessages
+      tags: [forum]
+      summary: List forum messages (paginated)
+      parameters:
+        - name: moodTag
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Forum messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForumPage"
+    post:
+      operationId: createForumMessage
+      tags: [forum]
+      summary: Post a message to the recommendation board
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForumMessageInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForumMessage"
+
+  # ── User Profiles ──────────────────────────────────────────────────────────
+
+  /users/{userId}:
+    get:
+      operationId: getUser
+      tags: [users]
+      summary: Get user profile
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+
+  /users/{userId}/register:
+    post:
+      operationId: registerUser
+      tags: [users]
+      summary: Register or update a user profile
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserInput"
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+
+  /users/{userId}/inbox:
+    get:
+      operationId: getUserInbox
+      tags: [users]
+      summary: Get user inbox (shared songs as gifts)
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Inbox items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InboxItem"
+
+  /users/share:
+    post:
+      operationId: shareSong
+      tags: [users]
+      summary: Share a song with another user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShareInput"
+      responses:
+        "201":
+          description: Shared
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxItem"
+
+  # ── Stats / Dashboard ──────────────────────────────────────────────────────
+
+  /stats:
+    get:
+      operationId: getStats
+      tags: [stats]
+      summary: Get app-wide stats for the dashboard
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppStats"
+
+  /stats/trending:
+    get:
+      operationId: getTrending
+      tags: [stats]
+      summary: Get trending songs (most voted in last 24h)
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Trending
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BoardEntry"
+
 components:
   schemas:
     HealthStatus:
       type: object
+      required: [status]
       properties:
         status:
           type: string
-      required:
-        - status
 
+    # ── Song ───────────────────────────────────────────────────────────────
+
+    Song:
+      type: object
+      required: [id, title, artist, source, sourceUrl, storageType, category, userId, createdAt]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        artist:
+          type: string
+        album:
+          type: ["string", "null"]
+        duration:
+          type: ["integer", "null"]
+        coverUrl:
+          type: ["string", "null"]
+        source:
+          type: string
+          enum: [youtube, soundcloud, upload]
+        sourceUrl:
+          type: string
+        storageType:
+          type: string
+          enum: [limited, permanent, public_limited, public_download]
+        category:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        userId:
+          type: string
+        expiresAt:
+          type: ["string", "null"]
+        voteCount:
+          type: integer
+        isPublic:
+          type: boolean
+        createdAt:
+          type: string
+
+    SongInput:
+      type: object
+      required: [title, artist, source, sourceUrl, storageType, userId]
+      properties:
+        title:
+          type: string
+        artist:
+          type: string
+        album:
+          type: string
+        duration:
+          type: integer
+        coverUrl:
+          type: string
+        source:
+          type: string
+          enum: [youtube, soundcloud, upload]
+        sourceUrl:
+          type: string
+        storageType:
+          type: string
+          enum: [limited, permanent, public_limited, public_download]
+        category:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        userId:
+          type: string
+        isPublic:
+          type: boolean
+
+    SongUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        artist:
+          type: string
+        album:
+          type: string
+        coverUrl:
+          type: string
+        category:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        storageType:
+          type: string
+          enum: [limited, permanent, public_limited, public_download]
+
+    PromoteInput:
+      type: object
+      required: [targetStorage]
+      properties:
+        targetStorage:
+          type: string
+          enum: [permanent, public_download]
+
+    TagInput:
+      type: object
+      required: [tag, userId]
+      properties:
+        tag:
+          type: string
+        userId:
+          type: string
+
+    # ── Search ─────────────────────────────────────────────────────────────
+
+    SearchResult:
+      type: object
+      required: [externalId, title, artist, source, streamUrl]
+      properties:
+        externalId:
+          type: string
+        title:
+          type: string
+        artist:
+          type: string
+        duration:
+          type: ["integer", "null"]
+        coverUrl:
+          type: ["string", "null"]
+        source:
+          type: string
+          enum: [youtube, soundcloud]
+        streamUrl:
+          type: string
+
+    ImportInput:
+      type: object
+      required: [externalId, title, artist, source, streamUrl, userId]
+      properties:
+        externalId:
+          type: string
+        title:
+          type: string
+        artist:
+          type: string
+        duration:
+          type: integer
+        coverUrl:
+          type: string
+        source:
+          type: string
+          enum: [youtube, soundcloud]
+        streamUrl:
+          type: string
+        userId:
+          type: string
+        category:
+          type: string
+
+    # ── Category ───────────────────────────────────────────────────────────
+
+    Category:
+      type: object
+      required: [name, count]
+      properties:
+        name:
+          type: string
+        count:
+          type: integer
+
+    # ── Playlist ───────────────────────────────────────────────────────────
+
+    Playlist:
+      type: object
+      required: [id, name, userId, isPublic, songCount, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        userId:
+          type: string
+        isPublic:
+          type: boolean
+        songCount:
+          type: integer
+        songs:
+          type: array
+          items:
+            $ref: "#/components/schemas/Song"
+        createdAt:
+          type: string
+
+    PlaylistInput:
+      type: object
+      required: [name, userId]
+      properties:
+        name:
+          type: string
+        userId:
+          type: string
+        isPublic:
+          type: boolean
+
+    PlaylistSongInput:
+      type: object
+      required: [songId]
+      properties:
+        songId:
+          type: integer
+
+    # ── Song Board ─────────────────────────────────────────────────────────
+
+    BoardEntry:
+      type: object
+      required: [id, songId, song, voteCount, nominatedBy, createdAt]
+      properties:
+        id:
+          type: integer
+        songId:
+          type: integer
+        song:
+          $ref: "#/components/schemas/Song"
+        voteCount:
+          type: integer
+        nominatedBy:
+          type: string
+        userVoted:
+          type: boolean
+        createdAt:
+          type: string
+
+    VoteInput:
+      type: object
+      required: [userId]
+      properties:
+        userId:
+          type: string
+
+    NominationInput:
+      type: object
+      required: [userId]
+      properties:
+        userId:
+          type: string
+
+    # ── Queue ──────────────────────────────────────────────────────────────
+
+    QueueEntry:
+      type: object
+      required: [id, songId, song, userId, vetoCount, position, createdAt]
+      properties:
+        id:
+          type: integer
+        songId:
+          type: integer
+        song:
+          $ref: "#/components/schemas/Song"
+        userId:
+          type: string
+        vetoCount:
+          type: integer
+        position:
+          type: integer
+        createdAt:
+          type: string
+
+    QueueInput:
+      type: object
+      required: [songId, userId]
+      properties:
+        songId:
+          type: integer
+        userId:
+          type: string
+
+    VetoInput:
+      type: object
+      required: [userId]
+      properties:
+        userId:
+          type: string
+
+    # ── Daily Playlist ─────────────────────────────────────────────────────
+
+    DailyEntry:
+      type: object
+      required: [id, songId, song, userId, date, createdAt]
+      properties:
+        id:
+          type: integer
+        songId:
+          type: integer
+        song:
+          $ref: "#/components/schemas/Song"
+        userId:
+          type: string
+        date:
+          type: string
+        createdAt:
+          type: string
+
+    DailyInput:
+      type: object
+      required: [songId, userId]
+      properties:
+        songId:
+          type: integer
+        userId:
+          type: string
+
+    # ── Forum ──────────────────────────────────────────────────────────────
+
+    ForumMessage:
+      type: object
+      required: [id, userId, content, moodTag, createdAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: string
+        userName:
+          type: ["string", "null"]
+        content:
+          type: string
+        moodTag:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    ForumMessageInput:
+      type: object
+      required: [userId, content]
+      properties:
+        userId:
+          type: string
+        content:
+          type: string
+        moodTag:
+          type: string
+
+    ForumPage:
+      type: object
+      required: [messages, total, page, totalPages]
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ForumMessage"
+        total:
+          type: integer
+        page:
+          type: integer
+        totalPages:
+          type: integer
+
+    # ── Users ──────────────────────────────────────────────────────────────
+
+    UserProfile:
+      type: object
+      required: [userId, displayName, reputation, badgeCount, createdAt]
+      properties:
+        userId:
+          type: string
+        displayName:
+          type: string
+        reputation:
+          type: integer
+        badgeCount:
+          type: integer
+        badges:
+          type: array
+          items:
+            type: string
+        nominatedCount:
+          type: integer
+        uploadCount:
+          type: integer
+        createdAt:
+          type: string
+
+    UserInput:
+      type: object
+      required: [displayName]
+      properties:
+        displayName:
+          type: string
+
+    InboxItem:
+      type: object
+      required: [id, fromUserId, toUserId, songId, song, createdAt]
+      properties:
+        id:
+          type: integer
+        fromUserId:
+          type: string
+        fromUserName:
+          type: ["string", "null"]
+        toUserId:
+          type: string
+        songId:
+          type: integer
+        song:
+          $ref: "#/components/schemas/Song"
+        message:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    ShareInput:
+      type: object
+      required: [fromUserId, toUserId, songId]
+      properties:
+        fromUserId:
+          type: string
+        toUserId:
+          type: string
+        songId:
+          type: integer
+        message:
+          type: string
+
+    # ── Stats ──────────────────────────────────────────────────────────────
+
+    AppStats:
+      type: object
+      required: [totalSongs, totalUsers, totalVotes, activeDailyEntries, queueLength, forumMessages]
+      properties:
+        totalSongs:
+          type: integer
+        totalUsers:
+          type: integer
+        totalVotes:
+          type: integer
+        activeDailyEntries:
+          type: integer
+        queueLength:
+          type: integer
+        forumMessages:
+          type: integer
+        publicDownloadCount:
+          type: integer
+        publicLimitedCount:
+          type: integer
