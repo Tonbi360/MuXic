@@ -106,7 +106,7 @@ function Sidebar() {
         <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
           <Mic2 className="w-4 h-4 text-white" />
         </div>
-        <span className="font-serif font-bold tracking-tight text-xl text-primary">SoundBoard</span>
+        <span className="font-serif font-bold tracking-tight text-xl text-primary">MuXic</span>
       </div>
       <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
         {navItems.map((item) => (

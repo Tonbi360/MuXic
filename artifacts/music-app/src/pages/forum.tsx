@@ -28,7 +28,7 @@ export default function ForumPage() {
 
   // Cooldown timer
   useEffect(() => {
-    const lastPost = localStorage.getItem("soundboard_lastForumPost");
+    const lastPost = localStorage.getItem("muxic_lastForumPost");
     if (!lastPost) return undefined;
     const elapsed = Date.now() - parseInt(lastPost, 10);
     if (elapsed < COOLDOWN_MS) {
@@ -58,7 +58,7 @@ export default function ForumPage() {
           queryClient.invalidateQueries({ queryKey: getListForumMessagesQueryKey({ moodTag: moodFilter || undefined, page, limit: 20 }) });
           setContent("");
           setSelectedMood("");
-          localStorage.setItem("soundboard_lastForumPost", String(Date.now()));
+          localStorage.setItem("muxic_lastForumPost", String(Date.now()));
           setCooldownLeft(Math.ceil(COOLDOWN_MS / 1000));
           toast({ title: "Posted!" });
         },

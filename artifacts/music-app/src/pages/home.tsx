@@ -26,7 +26,7 @@ export default function HomePage() {
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-8">
       <div>
-        <h1 className="text-4xl font-bold font-serif mb-1">SoundBoard</h1>
+        <h1 className="text-4xl font-bold font-serif mb-1">MuXic</h1>
         <p className="text-muted-foreground">Your community music station</p>
       </div>
 

@@ -1,4 +1,4 @@
-# SoundBoard
+# MuXic
 
 A community-driven music PWA where users discover songs via YouTube/SoundCloud search, vote on a Song Board, share a Mixed Queue jukebox, contribute to a Daily Playlist, and recommend songs in a forum.
 
