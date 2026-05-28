@@ -410,7 +410,8 @@ export const RemoveSongFromPlaylistParams = zod.object({
 export const ListSongBoardQueryParams = zod.object({
   "tab": zod.enum(['hot', 'legends', 'mini']).optional(),
   "limit": zod.coerce.number().optional(),
-  "offset": zod.coerce.number().optional()
+  "offset": zod.coerce.number().optional(),
+  "userId": zod.coerce.string().optional()
 })
 
 export const ListSongBoardResponseItem = zod.object({

@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useRef, useEffect, ReactNode } from "react";
-import { Song } from "@workspace/api-client-react";
+import type { Song } from "@workspace/api-client-react";
+
+export type RepeatMode = "off" | "one" | "all";
 
 interface PlayerContextType {
   currentSong: Song | null;
@@ -12,11 +14,28 @@ interface PlayerContextType {
   queue: Song[];
   addToQueue: (song: Song) => void;
   next: () => void;
+  prev: () => void;
   volume: number;
   setVolume: (v: number) => void;
+  shuffle: boolean;
+  setShuffle: (v: boolean) => void;
+  repeat: RepeatMode;
+  setRepeat: (v: RepeatMode) => void;
 }
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
+
+declare global {
+  interface Window {
+    YT: any;
+    onYouTubeIframeAPIReady: () => void;
+  }
+}
+
+function extractYouTubeId(url: string): string | null {
+  const m = url.match(/[?&]v=([^&#\s]+)/);
+  return m ? m[1] : null;
+}
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
@@ -24,101 +43,223 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [queue, setQueue] = useState<Song[]>([]);
-  const [volume, setVolume] = useState(1);
+  const [volume, setVolumeState] = useState(1);
+  const [shuffle, setShuffle] = useState(false);
+  const [repeat, setRepeat] = useState<RepeatMode>("off");
+  const [ytReady, setYtReady] = useState(false);
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const ytPlayerRef = useRef<any>(null);
+  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    if (!audioRef.current) {
-      audioRef.current = new Audio();
-      audioRef.current.addEventListener("timeupdate", () => {
-        setProgress(audioRef.current?.currentTime || 0);
-      });
-      audioRef.current.addEventListener("loadedmetadata", () => {
-        setDuration(audioRef.current?.duration || 0);
-      });
-      audioRef.current.addEventListener("ended", () => {
-        next();
-      });
+  // Keep a ref to always-fresh state for use inside event listeners
+  const liveRef = useRef({
+    currentSong: null as Song | null,
+    queue: [] as Song[],
+    volume: 1,
+    shuffle: false,
+    repeat: "off" as RepeatMode,
+    isPlaying: false,
+  });
+  liveRef.current = { currentSong, queue, volume, shuffle, repeat, isPlaying };
+
+  // A stable ref to onSongEnded so event listeners always call the latest version
+  const onSongEndedRef = useRef<() => void>(() => {});
+
+  function stopProgress() {
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+      progressIntervalRef.current = null;
     }
-  }, [queue, currentSong]);
+  }
 
-  const playSong = (song: Song) => {
+  function playInternal(song: Song) {
+    const vol = liveRef.current.volume;
+
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = "";
+    }
+    stopProgress();
+    setProgress(0);
+    setDuration(0);
     setCurrentSong(song);
     setIsPlaying(true);
-    if (audioRef.current) {
-      audioRef.current.src = song.sourceUrl || "";
-      audioRef.current.volume = volume;
-      audioRef.current.play().catch((e) => console.error("Play failed", e));
+
+    const ytId = song.source === "youtube" ? extractYouTubeId(song.sourceUrl) : null;
+
+    if (ytId && ytPlayerRef.current) {
+      ytPlayerRef.current.loadVideoById(ytId);
+      ytPlayerRef.current.setVolume(vol * 100);
+      progressIntervalRef.current = setInterval(() => {
+        try {
+          const t = ytPlayerRef.current?.getCurrentTime?.() ?? 0;
+          const d = ytPlayerRef.current?.getDuration?.() ?? 0;
+          setProgress(t);
+          if (d > 0) setDuration(d);
+        } catch {
+          // YT player not ready yet
+        }
+      }, 500);
+    } else if (song.sourceUrl) {
+      if (audioRef.current) {
+        audioRef.current.src = song.sourceUrl;
+        audioRef.current.volume = vol;
+        audioRef.current.play().catch(() => {});
+      }
     }
-  };
+  }
+
+  function onSongEnded() {
+    const { repeat, queue, currentSong, shuffle } = liveRef.current;
+    if (repeat === "one" && currentSong) {
+      playInternal(currentSong);
+      return;
+    }
+    if (queue.length > 0) {
+      const idx = shuffle ? Math.floor(Math.random() * queue.length) : 0;
+      const next = queue[idx];
+      setQueue((q) => q.filter((_, i) => i !== idx));
+      playInternal(next);
+      return;
+    }
+    if (repeat === "all" && currentSong) {
+      playInternal(currentSong);
+      return;
+    }
+    setIsPlaying(false);
+    stopProgress();
+  }
+
+  // Keep the ref pointing to the latest version
+  onSongEndedRef.current = onSongEnded;
+
+  // Load YouTube IFrame API once
+  useEffect(() => {
+    if (window.YT?.Player) {
+      setYtReady(true);
+      return;
+    }
+    window.onYouTubeIframeAPIReady = () => setYtReady(true);
+    if (!document.querySelector('script[src*="youtube.com/iframe_api"]')) {
+      const s = document.createElement("script");
+      s.src = "https://www.youtube.com/iframe_api";
+      document.head.appendChild(s);
+    }
+  }, []);
+
+  // Create YT player once API is ready
+  useEffect(() => {
+    if (!ytReady || ytPlayerRef.current) return;
+    ytPlayerRef.current = new window.YT.Player("yt-player-container", {
+      height: "1",
+      width: "1",
+      playerVars: { autoplay: 0, controls: 0, playsinline: 1 },
+      events: {
+        onStateChange: (e: any) => {
+          const S = window.YT?.PlayerState;
+          if (!S) return;
+          if (e.data === S.PLAYING) setIsPlaying(true);
+          else if (e.data === S.PAUSED) setIsPlaying(false);
+          else if (e.data === S.ENDED) onSongEndedRef.current();
+        },
+      },
+    });
+  }, [ytReady]);
+
+  // Setup HTML5 audio once
+  useEffect(() => {
+    if (audioRef.current) return;
+    const audio = new Audio();
+    audio.addEventListener("timeupdate", () => setProgress(audio.currentTime || 0));
+    audio.addEventListener("loadedmetadata", () => setDuration(audio.duration || 0));
+    audio.addEventListener("ended", () => onSongEndedRef.current());
+    audioRef.current = audio;
+  }, []);
+
+  // Sync volume to whichever player is active
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.volume = volume;
+    if (ytPlayerRef.current?.setVolume) ytPlayerRef.current.setVolume(volume * 100);
+  }, [volume]);
+
+  const setVolume = (v: number) => setVolumeState(v);
+
+  const playSong = (song: Song) => playInternal(song);
 
   const togglePlay = () => {
-    if (!audioRef.current || !currentSong) return;
-    if (isPlaying) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-    } else {
-      audioRef.current.play();
-      setIsPlaying(true);
+    const { currentSong, isPlaying } = liveRef.current;
+    if (!currentSong) return;
+    const ytId = currentSong.source === "youtube" ? extractYouTubeId(currentSong.sourceUrl) : null;
+    if (ytId && ytPlayerRef.current) {
+      if (isPlaying) ytPlayerRef.current.pauseVideo();
+      else ytPlayerRef.current.playVideo();
+    } else if (audioRef.current) {
+      if (isPlaying) { audioRef.current.pause(); setIsPlaying(false); }
+      else { audioRef.current.play().catch(() => {}); setIsPlaying(true); }
     }
   };
 
   const seek = (value: number) => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = value;
-      setProgress(value);
-    }
+    const { currentSong } = liveRef.current;
+    if (!currentSong) return;
+    const ytId = currentSong.source === "youtube" ? extractYouTubeId(currentSong.sourceUrl) : null;
+    if (ytId && ytPlayerRef.current) ytPlayerRef.current.seekTo(value, true);
+    else if (audioRef.current) audioRef.current.currentTime = value;
+    setProgress(value);
   };
 
-  const addToQueue = (song: Song) => {
-    setQueue((q) => [...q, song]);
-  };
+  const addToQueue = (song: Song) => setQueue((q) => [...q, song]);
 
   const next = () => {
+    const { queue, shuffle } = liveRef.current;
     if (queue.length > 0) {
-      const nextSong = queue[0];
-      setQueue((q) => q.slice(1));
-      playSong(nextSong);
+      const idx = shuffle ? Math.floor(Math.random() * queue.length) : 0;
+      const song = queue[idx];
+      setQueue((q) => q.filter((_, i) => i !== idx));
+      playInternal(song);
     } else {
-      setIsPlaying(false);
-      setCurrentSong(null);
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.currentTime = 0;
-      }
+      onSongEndedRef.current();
     }
   };
 
-  useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = volume;
+  const prev = () => {
+    if (progress > 3) {
+      seek(0);
+    } else {
+      seek(0);
     }
-  }, [volume]);
+  };
 
   return (
     <PlayerContext.Provider
       value={{
-        currentSong,
-        isPlaying,
-        progress,
-        duration,
-        playSong,
-        togglePlay,
-        seek,
-        queue,
-        addToQueue,
-        next,
-        volume,
-        setVolume
+        currentSong, isPlaying, progress, duration,
+        playSong, togglePlay, seek, queue, addToQueue,
+        next, prev, volume, setVolume,
+        shuffle, setShuffle, repeat, setRepeat,
       }}
     >
+      <div
+        id="yt-player-container"
+        style={{
+          position: "fixed",
+          bottom: -2,
+          right: -2,
+          width: 1,
+          height: 1,
+          opacity: 0,
+          pointerEvents: "none",
+          zIndex: -1,
+        }}
+      />
       {children}
     </PlayerContext.Provider>
   );
 }
 
 export function usePlayer() {
-  const context = useContext(PlayerContext);
-  if (!context) throw new Error("usePlayer must be used within PlayerProvider");
-  return context;
+  const ctx = useContext(PlayerContext);
+  if (!ctx) throw new Error("usePlayer must be used within PlayerProvider");
+  return ctx;
 }

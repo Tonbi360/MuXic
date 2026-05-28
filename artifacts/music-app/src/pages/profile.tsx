@@ -21,7 +21,7 @@ export default function ProfilePage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: profile, isLoading } = useGetUser(userId);
+  const { data: profile, isLoading, isError } = useGetUser(userId);
   const { data: inbox } = useGetUserInbox(userId, {
     query: { enabled: tab === "inbox", queryKey: ["getUserInbox", userId] },
   });
@@ -29,8 +29,8 @@ export default function ProfilePage() {
   const registerMutation = useRegisterUser();
 
   useEffect(() => {
-    if (!profile) {
-      // Auto-register on first visit
+    if (isLoading) return;
+    if (isError && !registerMutation.isPending && !registerMutation.isSuccess) {
       const name = `User_${userId.slice(0, 6)}`;
       registerMutation.mutate(
         { userId, data: { displayName: name } },
@@ -40,10 +40,10 @@ export default function ProfilePage() {
           },
         }
       );
-    } else {
+    } else if (profile) {
       setDisplayName(profile.displayName);
     }
-  }, [profile]);
+  }, [isLoading, isError, profile]);
 
   function handleSaveName() {
     if (!displayName.trim()) return;

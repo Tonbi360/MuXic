@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { usePlayer } from "@/hooks/use-player";
+import type { RepeatMode } from "@/hooks/use-player";
 import { useLocation } from "wouter";
 import {
   Play, Pause, SkipForward, SkipBack, Volume2, Music2,
@@ -14,10 +15,8 @@ function formatTime(secs: number) {
 }
 
 export default function PlayerPage() {
-  const { currentSong, isPlaying, togglePlay, next, progress, duration, seek, volume, setVolume } = usePlayer();
+  const { currentSong, isPlaying, togglePlay, next, prev, progress, duration, seek, volume, setVolume, shuffle, setShuffle, repeat, setRepeat } = usePlayer();
   const [, setLocation] = useLocation();
-  const [shuffle, setShuffle] = useState(false);
-  const [repeat, setRepeat] = useState<"off" | "one" | "double">("off");
   const [sleepMinutes, setSleepMinutes] = useState<number | null>(null);
   const [sleepLeft, setSleepLeft] = useState<number | null>(null);
 
@@ -106,14 +105,14 @@ export default function PlayerPage() {
       <div className="flex items-center gap-6">
         <button
           data-testid="button-shuffle"
-          onClick={() => setShuffle((s) => !s)}
+          onClick={() => setShuffle(!shuffle)}
           className={`p-2 rounded-full transition-colors ${shuffle ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
         >
           <Shuffle className="w-5 h-5" />
         </button>
         <button
           data-testid="button-prev"
-          onClick={() => seek(0)}
+          onClick={prev}
           className="p-3 text-foreground hover:text-primary transition-colors"
         >
           <SkipBack className="w-6 h-6" />
@@ -134,12 +133,15 @@ export default function PlayerPage() {
         </button>
         <button
           data-testid="button-repeat"
-          onClick={() => setRepeat((r) => r === "off" ? "one" : r === "one" ? "double" : "off")}
+          onClick={() => setRepeat((repeat === "off" ? "one" : repeat === "one" ? "all" : "off") as RepeatMode)}
           className={`p-2 rounded-full transition-colors relative ${repeat !== "off" ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
         >
           <Repeat className="w-5 h-5" />
-          {repeat === "double" && (
-            <span className="absolute -top-0.5 -right-0.5 text-[8px] font-bold bg-primary text-primary-foreground rounded-full w-3 h-3 flex items-center justify-center">2</span>
+          {repeat === "all" && (
+            <span className="absolute -top-0.5 -right-0.5 text-[8px] font-bold bg-primary text-primary-foreground rounded-full w-3 h-3 flex items-center justify-center">∞</span>
+          )}
+          {repeat === "one" && (
+            <span className="absolute -top-0.5 -right-0.5 text-[8px] font-bold bg-primary text-primary-foreground rounded-full w-3 h-3 flex items-center justify-center">1</span>
           )}
         </button>
       </div>

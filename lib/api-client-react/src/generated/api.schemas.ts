@@ -333,6 +333,7 @@ export type ListSongBoardParams = {
 tab?: ListSongBoardTab;
 limit?: number;
 offset?: number;
+userId?: string;
 };
 
 export type ListSongBoardTab = typeof ListSongBoardTab[keyof typeof ListSongBoardTab];

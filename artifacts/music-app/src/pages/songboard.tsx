@@ -15,7 +15,7 @@ export default function SongboardPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: entries, isLoading } = useListSongBoard({ tab, limit: 30 });
+  const { data: entries, isLoading } = useListSongBoard({ tab, limit: 30, userId });
   const voteMutation = useVoteSong();
 
   function handleVote(songId: number) {
