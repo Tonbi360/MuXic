@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { usersTable, inboxTable, songsTable, boardEntriesTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { usersTable, inboxTable, songsTable, boardEntriesTable, dailyPlaylistTable, forumTable } from "@workspace/db";
+import { eq, sql, desc } from "drizzle-orm";
 import {
   GetUserParams,
   RegisterUserParams,
@@ -35,6 +35,16 @@ async function buildUserProfile(user: typeof usersTable.$inferSelect) {
     createdAt: user.createdAt.toISOString(),
   };
 }
+
+// List all users (for sharing)
+router.get("/users", async (_req, res): Promise<void> => {
+  const users = await db
+    .select({ userId: usersTable.userId, displayName: usersTable.displayName })
+    .from(usersTable)
+    .orderBy(desc(usersTable.createdAt))
+    .limit(50);
+  res.json(users);
+});
 
 router.get("/users/:userId", async (req, res): Promise<void> => {
   const params = GetUserParams.safeParse(req.params);
@@ -108,6 +118,53 @@ router.get("/users/:userId/inbox", async (req, res): Promise<void> => {
   );
 
   res.json(result);
+});
+
+router.get("/users/:userId/activity", async (req, res): Promise<void> => {
+  const userId = req.params.userId;
+
+  const [nominations, dailyEntries, forumPosts] = await Promise.all([
+    db.select().from(boardEntriesTable)
+      .where(eq(boardEntriesTable.nominatedBy, userId))
+      .orderBy(desc(boardEntriesTable.createdAt))
+      .limit(15),
+    db.select().from(dailyPlaylistTable)
+      .where(eq(dailyPlaylistTable.userId, userId))
+      .orderBy(desc(dailyPlaylistTable.createdAt))
+      .limit(15),
+    db.select().from(forumTable)
+      .where(eq(forumTable.userId, userId))
+      .orderBy(desc(forumTable.createdAt))
+      .limit(15),
+  ]);
+
+  const nominationItems = await Promise.all(
+    nominations.map(async (n) => {
+      const [song] = await db.select().from(songsTable).where(eq(songsTable.id, n.songId));
+      return { type: "nomination", date: n.createdAt.toISOString(), song: song ? toSongResponse(song) : null };
+    })
+  );
+
+  const dailyItems = await Promise.all(
+    dailyEntries.map(async (d) => {
+      const [song] = await db.select().from(songsTable).where(eq(songsTable.id, d.songId));
+      return { type: "daily", date: d.createdAt.toISOString(), song: song ? toSongResponse(song) : null };
+    })
+  );
+
+  const forumItems = forumPosts.map((f) => ({
+    type: "forum",
+    date: f.createdAt.toISOString(),
+    content: f.content,
+    moodTag: f.moodTag ?? null,
+    song: null,
+  }));
+
+  const activities = [...nominationItems, ...dailyItems, ...forumItems].sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
+
+  res.json(activities);
 });
 
 router.post("/users/share", async (req, res): Promise<void> => {

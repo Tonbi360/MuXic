@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './activityItem';
 export * from './appStats';
 export * from './boardEntry';
 export * from './category';
@@ -49,5 +50,6 @@ export * from './songUpdateStorageType';
 export * from './tagInput';
 export * from './userInput';
 export * from './userProfile';
+export * from './userSummary';
 export * from './vetoInput';
 export * from './voteInput';

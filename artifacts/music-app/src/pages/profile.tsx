@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { useGetUser, useRegisterUser, useGetUserInbox, getGetUserQueryKey, getGetUserInboxQueryKey } from "@workspace/api-client-react";
+import { useGetUser, useRegisterUser, useGetUserInbox, useGetUserActivity, getGetUserQueryKey, getGetUserInboxQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getUserId } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { usePlayer } from "@/hooks/use-player";
-import { UserCircle, Star, Music2, Award, Inbox, Play, Edit2, Check } from "lucide-react";
+import { UserCircle, Star, Music2, Award, Inbox, Play, Edit2, Check, MessageSquare, Radio, Trophy } from "lucide-react";
 
 const BADGE_COLORS: Record<string, string> = {
   Lyricist: "bg-purple-500/20 text-purple-400",
@@ -12,8 +12,30 @@ const BADGE_COLORS: Record<string, string> = {
   Nominator: "bg-blue-500/20 text-blue-400",
 };
 
+function formatTime(iso: string) {
+  const d = new Date(iso);
+  const now = new Date();
+  const diff = now.getTime() - d.getTime();
+  if (diff < 60000) return "just now";
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+  return d.toLocaleDateString();
+}
+
+const ACTIVITY_ICONS: Record<string, React.ElementType> = {
+  nomination: Trophy,
+  daily: Radio,
+  forum: MessageSquare,
+};
+
+const ACTIVITY_LABELS: Record<string, string> = {
+  nomination: "Nominated to Song Board",
+  daily: "Submitted to Daily Playlist",
+  forum: "Posted in Forum",
+};
+
 export default function ProfilePage() {
-  const [tab, setTab] = useState<"profile" | "inbox">("profile");
+  const [tab, setTab] = useState<"activity" | "inbox">("activity");
   const [editing, setEditing] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const userId = getUserId();
@@ -24,6 +46,9 @@ export default function ProfilePage() {
   const { data: profile, isLoading, isError } = useGetUser(userId);
   const { data: inbox } = useGetUserInbox(userId, {
     query: { enabled: tab === "inbox", queryKey: ["getUserInbox", userId] },
+  });
+  const { data: activity, isLoading: activityLoading } = useGetUserActivity(userId, {
+    query: { enabled: tab === "activity", queryKey: ["getUserActivity", userId] },
   });
 
   const registerMutation = useRegisterUser();
@@ -75,7 +100,7 @@ export default function ProfilePage() {
             <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
               <UserCircle className="w-10 h-10 text-primary" />
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               {editing ? (
                 <div className="flex items-center gap-2">
                   <input
@@ -95,11 +120,11 @@ export default function ProfilePage() {
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <h2 className="text-xl font-bold">{profile.displayName}</h2>
+                  <h2 className="text-xl font-bold truncate">{profile.displayName}</h2>
                   <button
                     data-testid="button-edit-name"
                     onClick={() => setEditing(true)}
-                    className="p-1 text-muted-foreground hover:text-foreground"
+                    className="p-1 text-muted-foreground hover:text-foreground shrink-0"
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
@@ -155,9 +180,9 @@ export default function ProfilePage() {
       {/* Tabs */}
       <div className="flex gap-1 bg-muted p-1 rounded-lg w-fit">
         <button
-          data-testid="tab-profile"
-          onClick={() => setTab("profile")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "profile" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+          data-testid="tab-activity"
+          onClick={() => setTab("activity")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "activity" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
         >
           <Music2 className="w-4 h-4" /> Activity
         </button>
@@ -170,12 +195,68 @@ export default function ProfilePage() {
         </button>
       </div>
 
+      {/* Activity tab */}
+      {tab === "activity" && (
+        <div className="space-y-2">
+          {activityLoading ? (
+            Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="bg-card border border-border rounded-xl h-16 animate-pulse" />
+            ))
+          ) : !activity || activity.length === 0 ? (
+            <div className="text-center py-16 text-muted-foreground">
+              <Music2 className="w-10 h-10 mx-auto mb-2 opacity-30" />
+              <p className="font-medium text-sm">No activity yet</p>
+              <p className="text-xs mt-1">Search songs, nominate to the board, or post in the forum</p>
+            </div>
+          ) : (
+            activity.map((item, idx) => {
+              const Icon = ACTIVITY_ICONS[item.type] ?? Music2;
+              const label = ACTIVITY_LABELS[item.type] ?? item.type;
+              return (
+                <div
+                  key={idx}
+                  className="bg-card border border-border rounded-xl p-4 flex items-center gap-3"
+                >
+                  <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    <Icon className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-muted-foreground font-medium">{label}</p>
+                    {item.song ? (
+                      <p className="font-semibold truncate text-sm">{item.song.title}</p>
+                    ) : item.content ? (
+                      <p className="text-sm truncate text-muted-foreground italic">"{item.content}"</p>
+                    ) : null}
+                    {item.song && (
+                      <p className="text-xs text-muted-foreground truncate">{item.song.artist}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-xs text-muted-foreground">{formatTime(item.date)}</span>
+                    {item.song && (
+                      <button
+                        onClick={() => playSong(item.song!)}
+                        className="p-1.5 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
+                      >
+                        <Play className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+
+      {/* Inbox tab */}
       {tab === "inbox" && (
         <div className="space-y-2">
           {!inbox || inbox.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <Inbox className="w-10 h-10 mx-auto mb-2 opacity-30" />
-              <p className="text-sm">No gifts yet</p>
+              <p className="text-sm font-medium">Inbox is empty</p>
+              <p className="text-xs mt-1">Songs shared with you will appear here</p>
             </div>
           ) : (
             inbox.map((item) => (

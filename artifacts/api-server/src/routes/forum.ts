@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { forumTable, usersTable } from "@workspace/db";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, isNull, asc, and } from "drizzle-orm";
 import {
   ListForumMessagesQueryParams,
   CreateForumMessageBody,
@@ -13,7 +13,7 @@ const FORUM_PAGE_SIZE = 20;
 const MESSAGE_COOLDOWN_MS = 30 * 1000;
 const userLastMessage: Map<string, number> = new Map();
 
-async function buildMessage(entry: typeof forumTable.$inferSelect) {
+async function buildMessage(entry: typeof forumTable.$inferSelect, replyCount = 0) {
   const [user] = await db.select().from(usersTable).where(eq(usersTable.userId, entry.userId));
   return {
     id: entry.id,
@@ -21,6 +21,8 @@ async function buildMessage(entry: typeof forumTable.$inferSelect) {
     userName: user?.displayName ?? null,
     content: entry.content,
     moodTag: entry.moodTag,
+    parentId: entry.parentId ?? null,
+    replyCount,
     createdAt: entry.createdAt.toISOString(),
   };
 }
@@ -36,17 +38,23 @@ router.get("/forum", async (req, res): Promise<void> => {
   const limit = typeof params.data.limit === "string" ? parseInt(params.data.limit, 10) : (params.data.limit ?? FORUM_PAGE_SIZE);
   const offset = (page - 1) * limit;
 
-  let query = db.select().from(forumTable).$dynamic();
-  let countQuery = db.select({ count: sql<number>`count(*)::int` }).from(forumTable).$dynamic();
+  const moodFilter = params.data.moodTag ? eq(forumTable.moodTag, params.data.moodTag) : undefined;
+  const whereClause = moodFilter
+    ? and(isNull(forumTable.parentId), moodFilter)
+    : isNull(forumTable.parentId);
 
-  if (params.data.moodTag) {
-    query = query.where(eq(forumTable.moodTag, params.data.moodTag));
-    countQuery = countQuery.where(eq(forumTable.moodTag, params.data.moodTag));
-  }
+  const [{ count: total }] = await db.select({ count: sql<number>`count(*)::int` }).from(forumTable).where(whereClause);
+  const entries = await db.select().from(forumTable).where(whereClause).orderBy(desc(forumTable.createdAt)).limit(limit).offset(offset);
 
-  const [{ count: total }] = await countQuery;
-  const entries = await query.orderBy(desc(forumTable.createdAt)).limit(limit).offset(offset);
-  const messages = await Promise.all(entries.map(buildMessage));
+  const messages = await Promise.all(
+    entries.map(async (entry) => {
+      const [{ replyCount }] = await db
+        .select({ replyCount: sql<number>`count(*)::int` })
+        .from(forumTable)
+        .where(eq(forumTable.parentId, entry.id));
+      return buildMessage(entry, replyCount);
+    })
+  );
 
   res.json({
     messages,
@@ -56,6 +64,23 @@ router.get("/forum", async (req, res): Promise<void> => {
   });
 });
 
+router.get("/forum/:id/replies", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+
+  const entries = await db
+    .select()
+    .from(forumTable)
+    .where(eq(forumTable.parentId, id))
+    .orderBy(asc(forumTable.createdAt));
+
+  const messages = await Promise.all(entries.map((e) => buildMessage(e)));
+  res.json(messages);
+});
+
 router.post("/forum", async (req, res): Promise<void> => {
   const parsed = CreateForumMessageBody.safeParse(req.body);
   if (!parsed.success) {
@@ -63,22 +88,24 @@ router.post("/forum", async (req, res): Promise<void> => {
     return;
   }
 
-  const { userId, content, moodTag } = parsed.data;
+  const { userId, content, moodTag, parentId } = parsed.data;
 
-  // Anti-spam cooldown
-  const lastPost = userLastMessage.get(userId);
-  if (lastPost && Date.now() - lastPost < MESSAGE_COOLDOWN_MS) {
-    const remainingSeconds = Math.ceil((MESSAGE_COOLDOWN_MS - (Date.now() - lastPost)) / 1000);
-    res.status(429).json({ error: `Please wait ${remainingSeconds}s before posting again` });
-    return;
+  // Anti-spam cooldown (only for top-level posts)
+  if (!parentId) {
+    const lastPost = userLastMessage.get(userId);
+    if (lastPost && Date.now() - lastPost < MESSAGE_COOLDOWN_MS) {
+      const remainingSeconds = Math.ceil((MESSAGE_COOLDOWN_MS - (Date.now() - lastPost)) / 1000);
+      res.status(429).json({ error: `Please wait ${remainingSeconds}s before posting again` });
+      return;
+    }
+    userLastMessage.set(userId, Date.now());
   }
-
-  userLastMessage.set(userId, Date.now());
 
   const [entry] = await db.insert(forumTable).values({
     userId,
     content,
     moodTag: moodTag ?? null,
+    parentId: parentId ?? null,
   }).returning();
 
   res.status(201).json(await buildMessage(entry));

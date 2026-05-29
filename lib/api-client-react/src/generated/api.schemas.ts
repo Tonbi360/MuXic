@@ -246,6 +246,9 @@ export interface ForumMessage {
   content: string;
   /** @nullable */
   moodTag: string | null;
+  /** @nullable */
+  parentId?: number | null;
+  replyCount: number;
   createdAt: string;
 }
 
@@ -253,6 +256,7 @@ export interface ForumMessageInput {
   userId: string;
   content: string;
   moodTag?: string;
+  parentId?: number;
 }
 
 export interface ForumPage {
@@ -260,6 +264,20 @@ export interface ForumPage {
   total: number;
   page: number;
   totalPages: number;
+}
+
+export interface UserSummary {
+  userId: string;
+  displayName: string;
+}
+
+export interface ActivityItem {
+  type: string;
+  date: string;
+  song?: Song;
+  content?: string;
+  /** @nullable */
+  moodTag?: string | null;
 }
 
 export interface UserProfile {

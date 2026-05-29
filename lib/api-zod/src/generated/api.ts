@@ -659,6 +659,26 @@ export const GetDailyArchiveResponse = zod.array(GetDailyArchiveResponseItem)
 
 
 /**
+ * @summary Get replies for a forum post
+ */
+export const GetForumRepliesParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetForumRepliesResponseItem = zod.object({
+  "id": zod.number(),
+  "userId": zod.string(),
+  "userName": zod.string().nullish(),
+  "content": zod.string(),
+  "moodTag": zod.string().nullable(),
+  "parentId": zod.number().nullish(),
+  "replyCount": zod.number(),
+  "createdAt": zod.string()
+})
+export const GetForumRepliesResponse = zod.array(GetForumRepliesResponseItem)
+
+
+/**
  * @summary List forum messages (paginated)
  */
 export const ListForumMessagesQueryParams = zod.object({
@@ -674,6 +694,8 @@ export const ListForumMessagesResponse = zod.object({
   "userName": zod.string().nullish(),
   "content": zod.string(),
   "moodTag": zod.string().nullable(),
+  "parentId": zod.number().nullish(),
+  "replyCount": zod.number(),
   "createdAt": zod.string()
 })),
   "total": zod.number(),
@@ -688,8 +710,19 @@ export const ListForumMessagesResponse = zod.object({
 export const CreateForumMessageBody = zod.object({
   "userId": zod.string(),
   "content": zod.string(),
-  "moodTag": zod.string().optional()
+  "moodTag": zod.string().optional(),
+  "parentId": zod.number().optional()
 })
+
+
+/**
+ * @summary List registered users (for sharing)
+ */
+export const ListUsersResponseItem = zod.object({
+  "userId": zod.string(),
+  "displayName": zod.string()
+})
+export const ListUsersResponse = zod.array(ListUsersResponseItem)
 
 
 /**
@@ -732,6 +765,40 @@ export const RegisterUserResponse = zod.object({
   "uploadCount": zod.number().optional(),
   "createdAt": zod.string()
 })
+
+
+/**
+ * @summary Get user activity feed
+ */
+export const GetUserActivityParams = zod.object({
+  "userId": zod.coerce.string()
+})
+
+export const GetUserActivityResponseItem = zod.object({
+  "type": zod.string(),
+  "date": zod.string(),
+  "song": zod.object({
+  "id": zod.number(),
+  "title": zod.string(),
+  "artist": zod.string(),
+  "album": zod.string().nullish(),
+  "duration": zod.number().nullish(),
+  "coverUrl": zod.string().nullish(),
+  "source": zod.enum(['youtube', 'soundcloud', 'upload']),
+  "sourceUrl": zod.string(),
+  "storageType": zod.enum(['limited', 'permanent', 'public_limited', 'public_download']),
+  "category": zod.string(),
+  "tags": zod.array(zod.string()).optional(),
+  "userId": zod.string(),
+  "expiresAt": zod.string().nullish(),
+  "voteCount": zod.number().optional(),
+  "isPublic": zod.boolean().optional(),
+  "createdAt": zod.string()
+}).optional(),
+  "content": zod.string().optional(),
+  "moodTag": zod.string().nullish()
+})
+export const GetUserActivityResponse = zod.array(GetUserActivityResponseItem)
 
 
 /**

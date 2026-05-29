@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { usePlayer } from "@/hooks/use-player";
 import { getUserId } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { ListMusic, Play, ThumbsDown, Plus, Music2, X } from "lucide-react";
+import { ListMusic, Play, ThumbsDown, Plus, Music2, X, Zap } from "lucide-react";
 
 export default function QueuePage() {
   const userId = getUserId();
@@ -21,6 +21,16 @@ export default function QueuePage() {
   const removeMutation = useRemoveFromQueue();
 
   const userSongs = (mySongs ?? []).filter((s) => s.userId === userId);
+
+  // Token usage: count how many songs this user added in the last hour
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  const myTokensUsed = (queue ?? []).filter(
+    (e) => e.userId === userId && new Date(e.createdAt) > oneHourAgo
+  ).length;
+  const tokensLeft = Math.max(0, 3 - myTokensUsed);
+
+  // Determine which songs are already in queue (avoid duplicates)
+  const queuedSongIds = new Set((queue ?? []).map((e) => e.songId));
 
   function handleAdd() {
     if (!selectedSongId) return;
@@ -53,28 +63,52 @@ export default function QueuePage() {
     });
   }
 
-  function handleRemove(id: number) {
-    removeMutation.mutate({ id }, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getGetQueueQueryKey() });
-      },
-    });
+  function handlePlay(entry: NonNullable<typeof queue>[number]) {
+    if (entry.song) {
+      playSong(entry.song);
+      removeMutation.mutate({ id: entry.id }, {
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetQueueQueryKey() }),
+      });
+    }
   }
 
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-4xl font-bold font-serif mb-1">Mixed Queue</h1>
-          <p className="text-muted-foreground">Shared jukebox — everyone contributes</p>
+          <p className="text-muted-foreground">Community jukebox — everyone contributes</p>
         </div>
         <button
           data-testid="button-add-to-queue"
           onClick={() => setShowAdd(!showAdd)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
+          disabled={tokensLeft === 0}
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-40 shrink-0"
         >
           <Plus className="w-4 h-4" /> Add Song
         </button>
+      </div>
+
+      {/* Token meter */}
+      <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
+        <Zap className="w-5 h-5 text-primary shrink-0" />
+        <div className="flex-1">
+          <p className="text-sm font-medium">Your tokens this hour</p>
+          <p className="text-xs text-muted-foreground">3 songs per hour per person</p>
+        </div>
+        <div className="flex gap-1.5">
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className={`w-4 h-4 rounded-full border-2 transition-colors ${
+                i < myTokensUsed
+                  ? "bg-primary border-primary"
+                  : "border-muted-foreground/40"
+              }`}
+            />
+          ))}
+        </div>
+        <span className="text-sm font-semibold text-primary">{tokensLeft} left</span>
       </div>
 
       {showAdd && (
@@ -83,25 +117,41 @@ export default function QueuePage() {
             <p className="text-sm font-medium">Pick a song from your library</p>
             <button onClick={() => setShowAdd(false)}><X className="w-4 h-4 text-muted-foreground" /></button>
           </div>
-          <p className="text-xs text-muted-foreground">Limit: 3 songs per hour</p>
-          <div className="max-h-48 overflow-y-auto space-y-1">
+          <div className="max-h-52 overflow-y-auto space-y-1">
             {userSongs.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">No songs in your library yet</p>
             ) : (
-              userSongs.map((song) => (
-                <button
-                  key={song.id}
-                  data-testid={`select-queue-song-${song.id}`}
-                  onClick={() => setSelectedSongId(song.id)}
-                  className={`w-full flex items-center gap-3 p-2 rounded-lg text-left transition-colors ${selectedSongId === song.id ? "bg-primary/20 border border-primary" : "hover:bg-muted"}`}
-                >
-                  <Music2 className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{song.title}</p>
-                    <p className="text-xs text-muted-foreground truncate">{song.artist}</p>
-                  </div>
-                </button>
-              ))
+              userSongs.map((song) => {
+                const alreadyQueued = queuedSongIds.has(song.id);
+                return (
+                  <button
+                    key={song.id}
+                    data-testid={`select-queue-song-${song.id}`}
+                    onClick={() => !alreadyQueued && setSelectedSongId(song.id)}
+                    disabled={alreadyQueued}
+                    className={`w-full flex items-center gap-3 p-2 rounded-lg text-left transition-colors ${
+                      alreadyQueued
+                        ? "opacity-40 cursor-not-allowed"
+                        : selectedSongId === song.id
+                        ? "bg-primary/20 border border-primary"
+                        : "hover:bg-muted"
+                    }`}
+                  >
+                    {song.coverUrl ? (
+                      <img src={song.coverUrl} alt="" className="w-8 h-8 rounded object-cover shrink-0" />
+                    ) : (
+                      <Music2 className="w-4 h-4 text-muted-foreground shrink-0" />
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{song.title}</p>
+                      <p className="text-xs text-muted-foreground truncate">{song.artist}</p>
+                    </div>
+                    {alreadyQueued && (
+                      <span className="ml-auto text-xs text-muted-foreground shrink-0">in queue</span>
+                    )}
+                  </button>
+                );
+              })
             )}
           </div>
           <button
@@ -129,15 +179,21 @@ export default function QueuePage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {queue.map((entry) => (
+          {queue.map((entry, idx) => (
             <div
               key={entry.id}
               data-testid={`queue-entry-${entry.id}`}
-              className="bg-card border border-border rounded-xl p-4 flex items-center gap-4"
+              className={`bg-card border rounded-xl p-4 flex items-center gap-4 ${
+                idx === 0 ? "border-primary/50 bg-primary/5" : "border-border"
+              }`}
             >
-              <span className="text-lg font-bold font-serif text-muted-foreground w-6 shrink-0 text-center">
-                {entry.position + 1}
-              </span>
+              {idx === 0 ? (
+                <span className="text-xs font-bold text-primary uppercase tracking-wider w-6 shrink-0 text-center">▶</span>
+              ) : (
+                <span className="text-lg font-bold font-serif text-muted-foreground w-6 shrink-0 text-center">
+                  {idx + 1}
+                </span>
+              )}
               {entry.song?.coverUrl ? (
                 <img src={entry.song.coverUrl} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />
               ) : (
@@ -148,21 +204,22 @@ export default function QueuePage() {
               <div className="flex-1 min-w-0">
                 <p className="font-semibold truncate">{entry.song?.title}</p>
                 <p className="text-sm text-muted-foreground truncate">{entry.song?.artist}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">by {entry.userId.slice(0, 8)}...</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  added by{" "}
+                  <span className={entry.userId === userId ? "text-primary" : ""}>
+                    {entry.userId === userId ? "you" : entry.userId.slice(0, 8) + "…"}
+                  </span>
+                </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {entry.vetoCount > 0 && (
-                  <span className="text-xs text-destructive">{entry.vetoCount}/3 vetos</span>
+                  <span className="text-xs text-destructive font-medium">{entry.vetoCount}/3</span>
                 )}
                 <button
                   data-testid={`button-play-queue-${entry.id}`}
-                  onClick={() => {
-                    if (entry.song) {
-                      playSong(entry.song);
-                      handleRemove(entry.id);
-                    }
-                  }}
+                  onClick={() => handlePlay(entry)}
                   className="p-2 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
+                  title="Play now"
                 >
                   <Play className="w-4 h-4" />
                 </button>
@@ -171,7 +228,7 @@ export default function QueuePage() {
                   onClick={() => handleVeto(entry.id)}
                   disabled={vetoMutation.isPending}
                   className="p-2 bg-destructive/10 text-destructive rounded-lg hover:bg-destructive/20 transition-colors disabled:opacity-50"
-                  title="Veto this song (3 vetos = removed)"
+                  title="Veto (3 = removed)"
                 >
                   <ThumbsDown className="w-4 h-4" />
                 </button>

@@ -14,5 +14,8 @@ export interface ForumMessage {
   content: string;
   /** @nullable */
   moodTag: string | null;
+  /** @nullable */
+  parentId?: number | null;
+  replyCount: number;
   createdAt: string;
 }

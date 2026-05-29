@@ -6,9 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface ForumMessageInput {
+export interface UserSummary {
   userId: string;
-  content: string;
-  moodTag?: string;
-  parentId?: number;
+  displayName: string;
 }

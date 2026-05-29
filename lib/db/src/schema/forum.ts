@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -7,6 +7,7 @@ export const forumTable = pgTable("forum", {
   userId: text("user_id").notNull(),
   content: text("content").notNull(),
   moodTag: text("mood_tag"),
+  parentId: integer("parent_id").references((): AnyPgColumn => forumTable.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

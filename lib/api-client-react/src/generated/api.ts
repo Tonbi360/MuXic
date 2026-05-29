@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  ActivityItem,
   AppStats,
   BoardEntry,
   Category,
@@ -54,6 +55,7 @@ import type {
   TagInput,
   UserInput,
   UserProfile,
+  UserSummary,
   VetoInput,
   VoteInput
 } from './api.schemas';
@@ -2177,6 +2179,83 @@ export function useGetDailyArchive<TData = Awaited<ReturnType<typeof getDailyArc
 
 
 
+export const getGetForumRepliesUrl = (id: number,) => {
+
+
+
+
+  return `/api/forum/${id}/replies`
+}
+
+/**
+ * @summary Get replies for a forum post
+ */
+export const getForumReplies = async (id: number, options?: RequestInit): Promise<ForumMessage[]> => {
+
+  return customFetch<ForumMessage[]>(getGetForumRepliesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetForumRepliesQueryKey = (id: number,) => {
+    return [
+    `/api/forum/${id}/replies`
+    ] as const;
+    }
+
+
+export const getGetForumRepliesQueryOptions = <TData = Awaited<ReturnType<typeof getForumReplies>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getForumReplies>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetForumRepliesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getForumReplies>>> = ({ signal }) => getForumReplies(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getForumReplies>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetForumRepliesQueryResult = NonNullable<Awaited<ReturnType<typeof getForumReplies>>>
+export type GetForumRepliesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get replies for a forum post
+ */
+
+export function useGetForumReplies<TData = Awaited<ReturnType<typeof getForumReplies>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getForumReplies>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetForumRepliesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
 export const getListForumMessagesUrl = (params?: ListForumMessagesParams,) => {
   const normalizedParams = new URLSearchParams();
 
@@ -2332,6 +2411,83 @@ export const useCreateForumMessage = <TError = ErrorType<unknown>,
       return useMutation(getCreateForumMessageMutationOptions(options));
     }
 
+export const getListUsersUrl = () => {
+
+
+
+
+  return `/api/users`
+}
+
+/**
+ * @summary List registered users (for sharing)
+ */
+export const listUsers = async ( options?: RequestInit): Promise<UserSummary[]> => {
+
+  return customFetch<UserSummary[]>(getListUsersUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListUsersQueryKey = () => {
+    return [
+    `/api/users`
+    ] as const;
+    }
+
+
+export const getListUsersQueryOptions = <TData = Awaited<ReturnType<typeof listUsers>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listUsers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListUsersQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listUsers>>> = ({ signal }) => listUsers({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listUsers>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListUsersQueryResult = NonNullable<Awaited<ReturnType<typeof listUsers>>>
+export type ListUsersQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List registered users (for sharing)
+ */
+
+export function useListUsers<TData = Awaited<ReturnType<typeof listUsers>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listUsers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListUsersQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
 export const getGetUserUrl = (userId: string,) => {
 
 
@@ -2480,6 +2636,83 @@ export const useRegisterUser = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getRegisterUserMutationOptions(options));
     }
+
+export const getGetUserActivityUrl = (userId: string,) => {
+
+
+
+
+  return `/api/users/${userId}/activity`
+}
+
+/**
+ * @summary Get user activity feed
+ */
+export const getUserActivity = async (userId: string, options?: RequestInit): Promise<ActivityItem[]> => {
+
+  return customFetch<ActivityItem[]>(getGetUserActivityUrl(userId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetUserActivityQueryKey = (userId: string,) => {
+    return [
+    `/api/users/${userId}/activity`
+    ] as const;
+    }
+
+
+export const getGetUserActivityQueryOptions = <TData = Awaited<ReturnType<typeof getUserActivity>>, TError = ErrorType<unknown>>(userId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUserActivity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetUserActivityQueryKey(userId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getUserActivity>>> = ({ signal }) => getUserActivity(userId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(userId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getUserActivity>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetUserActivityQueryResult = NonNullable<Awaited<ReturnType<typeof getUserActivity>>>
+export type GetUserActivityQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get user activity feed
+ */
+
+export function useGetUserActivity<TData = Awaited<ReturnType<typeof getUserActivity>>, TError = ErrorType<unknown>>(
+ userId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUserActivity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetUserActivityQueryOptions(userId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getGetUserInboxUrl = (userId: string,) => {
 

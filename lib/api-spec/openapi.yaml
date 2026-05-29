@@ -628,6 +628,27 @@ paths:
 
   # ── Recommendation Board (Forum) ───────────────────────────────────────────
 
+  /forum/{id}/replies:
+    get:
+      operationId: getForumReplies
+      tags: [forum]
+      summary: Get replies for a forum post
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Replies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ForumMessage"
+
   /forum:
     get:
       operationId: listForumMessages
@@ -673,6 +694,21 @@ paths:
 
   # ── User Profiles ──────────────────────────────────────────────────────────
 
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List registered users (for sharing)
+      responses:
+        "200":
+          description: Users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserSummary"
+
   /users/{userId}:
     get:
       operationId: getUser
@@ -716,6 +752,27 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UserProfile"
+
+  /users/{userId}/activity:
+    get:
+      operationId: getUserActivity
+      tags: [users]
+      summary: Get user activity feed
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Activity items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
 
   /users/{userId}/inbox:
     get:
@@ -1117,7 +1174,7 @@ components:
 
     ForumMessage:
       type: object
-      required: [id, userId, content, moodTag, createdAt]
+      required: [id, userId, content, moodTag, createdAt, replyCount]
       properties:
         id:
           type: integer
@@ -1129,6 +1186,10 @@ components:
           type: string
         moodTag:
           type: ["string", "null"]
+        parentId:
+          type: ["integer", "null"]
+        replyCount:
+          type: integer
         createdAt:
           type: string
 
@@ -1142,6 +1203,8 @@ components:
           type: string
         moodTag:
           type: string
+        parentId:
+          type: integer
 
     ForumPage:
       type: object
@@ -1159,6 +1222,30 @@ components:
           type: integer
 
     # ── Users ──────────────────────────────────────────────────────────────
+
+    UserSummary:
+      type: object
+      required: [userId, displayName]
+      properties:
+        userId:
+          type: string
+        displayName:
+          type: string
+
+    ActivityItem:
+      type: object
+      required: [type, date]
+      properties:
+        type:
+          type: string
+        date:
+          type: string
+        song:
+          $ref: "#/components/schemas/Song"
+        content:
+          type: string
+        moodTag:
+          type: ["string", "null"]
 
     UserProfile:
       type: object

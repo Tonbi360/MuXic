@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { boardEntriesTable, votesTable, songsTable } from "@workspace/db";
-import { eq, desc, sql, and } from "drizzle-orm";
+import { eq, desc, sql, and, inArray } from "drizzle-orm";
 import {
   ListSongBoardQueryParams,
   VoteSongParams,
@@ -46,15 +46,36 @@ router.get("/songboard", async (req, res): Promise<void> => {
 
   let entries;
   if (tab === "hot") {
-    // Most votes in last 24h
+    // Songs with the most votes cast in the last 24 hours
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    entries = await db
-      .select()
-      .from(boardEntriesTable)
-      .where(sql`${boardEntriesTable.createdAt} > ${cutoff}`)
-      .orderBy(desc(boardEntriesTable.voteCount))
+    const recentVotes = await db
+      .select({ songId: votesTable.songId })
+      .from(votesTable)
+      .where(sql`${votesTable.createdAt} > ${cutoff}`)
+      .groupBy(votesTable.songId)
+      .orderBy(desc(sql<number>`count(*)`))
       .limit(limitNum)
       .offset(offsetNum);
+
+    if (recentVotes.length === 0) {
+      // Fallback: all-time leaderboard
+      entries = await db
+        .select()
+        .from(boardEntriesTable)
+        .orderBy(desc(boardEntriesTable.voteCount))
+        .limit(limitNum)
+        .offset(offsetNum);
+    } else {
+      const songIds = recentVotes.map((v) => v.songId);
+      const unordered = await db
+        .select()
+        .from(boardEntriesTable)
+        .where(inArray(boardEntriesTable.songId, songIds));
+      const orderMap = new Map(songIds.map((id, i) => [id, i]));
+      entries = [...unordered].sort(
+        (a, b) => (orderMap.get(a.songId) ?? 999) - (orderMap.get(b.songId) ?? 999)
+      );
+    }
   } else if (tab === "legends") {
     entries = await db
       .select()
@@ -114,7 +135,6 @@ router.post("/songboard/:songId/vote", async (req, res): Promise<void> => {
       .where(eq(boardEntriesTable.songId, songId))
       .returning();
   } else {
-    // Auto-nominate if voted on mini-board song not yet on main board
     const [song] = await db.select().from(songsTable).where(eq(songsTable.id, songId));
     [entry] = await db.insert(boardEntriesTable).values({
       songId,
@@ -158,7 +178,6 @@ router.post("/songboard/:songId/nominate", async (req, res): Promise<void> => {
     voteCount: 0,
   }).returning();
 
-  // Give nominator reputation
   res.status(201).json(await buildBoardEntry(entry));
 });
 
