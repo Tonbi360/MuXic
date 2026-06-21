@@ -275,11 +275,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   };
 
   const prev = () => {
-    if (progress > 3) {
-      seek(0);
-    } else {
-      seek(0);
-    }
+    seek(0);
   };
 
   return (
