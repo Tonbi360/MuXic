@@ -183,6 +183,57 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (ytPlayerRef.current?.setVolume) ytPlayerRef.current.setVolume(volume * 100);
   }, [volume]);
 
+  // Media Session API — registers with the OS so lock screen / notification controls work
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+    navigator.mediaSession.setActionHandler("play", () => {
+      const { currentSong, isPlaying } = liveRef.current;
+      if (!currentSong || isPlaying) return;
+      const ytId = currentSong.source === "youtube" ? extractYouTubeId(currentSong.sourceUrl) : null;
+      if (ytId && ytPlayerRef.current) ytPlayerRef.current.playVideo();
+      else if (audioRef.current) { audioRef.current.play().catch(() => {}); setIsPlaying(true); }
+    });
+    navigator.mediaSession.setActionHandler("pause", () => {
+      const { currentSong, isPlaying } = liveRef.current;
+      if (!currentSong || !isPlaying) return;
+      const ytId = currentSong.source === "youtube" ? extractYouTubeId(currentSong.sourceUrl) : null;
+      if (ytId && ytPlayerRef.current) ytPlayerRef.current.pauseVideo();
+      else if (audioRef.current) { audioRef.current.pause(); setIsPlaying(false); }
+    });
+    navigator.mediaSession.setActionHandler("nexttrack", () => onSongEndedRef.current());
+    navigator.mediaSession.setActionHandler("previoustrack", () => {
+      const song = liveRef.current.currentSong;
+      const ytId = song?.source === "youtube" ? extractYouTubeId(song.sourceUrl) : null;
+      if (ytId && ytPlayerRef.current) ytPlayerRef.current.seekTo(0, true);
+      else if (audioRef.current) audioRef.current.currentTime = 0;
+      setProgress(0);
+    });
+    return () => {
+      (["play", "pause", "nexttrack", "previoustrack"] as MediaSessionAction[]).forEach((a) => {
+        try { navigator.mediaSession.setActionHandler(a, null); } catch {}
+      });
+    };
+  }, []);
+
+  // Update OS media notification metadata when song changes
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+    if (!currentSong) { navigator.mediaSession.metadata = null; return; }
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: currentSong.title,
+      artist: currentSong.artist,
+      artwork: currentSong.coverUrl
+        ? [{ src: currentSong.coverUrl, sizes: "512x512", type: "image/jpeg" }]
+        : [],
+    });
+  }, [currentSong]);
+
+  // Keep OS playback state in sync
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+    navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
+  }, [isPlaying]);
+
   const setVolume = (v: number) => setVolumeState(v);
 
   const playSong = (song: Song) => playInternal(song);
