@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { usePlayer } from "@/hooks/use-player";
 import type { RepeatMode } from "@/hooks/use-player";
 import { useLocation } from "wouter";
@@ -20,6 +20,12 @@ export default function PlayerPage() {
   const [sleepMinutes, setSleepMinutes] = useState<number | null>(null);
   const [sleepLeft, setSleepLeft] = useState<number | null>(null);
 
+  // Keep a ref so the sleep timer interval always sees the latest isPlaying value
+  const isPlayingRef = useRef(isPlaying);
+  useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
+  const togglePlayRef = useRef(togglePlay);
+  useEffect(() => { togglePlayRef.current = togglePlay; }, [togglePlay]);
+
   // Sleep timer
   useEffect(() => {
     if (sleepMinutes === null) return;
@@ -30,7 +36,7 @@ export default function PlayerPage() {
       if (remaining <= 0) {
         setSleepLeft(null);
         setSleepMinutes(null);
-        if (isPlaying) togglePlay();
+        if (isPlayingRef.current) togglePlayRef.current();
         clearInterval(interval);
       } else {
         setSleepLeft(remaining);

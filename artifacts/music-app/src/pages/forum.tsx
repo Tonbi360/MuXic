@@ -4,6 +4,7 @@ import {
   useCreateForumMessage,
   useGetForumReplies,
   getListForumMessagesQueryKey,
+  getGetForumRepliesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getUserId } from "@/lib/auth";
@@ -38,7 +39,7 @@ function ReplyThread({ postId, currentUserId }: { postId: number; currentUserId:
       { data: { userId: currentUserId, content: replyContent.trim(), parentId: postId } },
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: ["getForumReplies", postId] });
+          queryClient.invalidateQueries({ queryKey: getGetForumRepliesQueryKey(postId) });
           setReplyContent("");
           toast({ title: "Reply posted!" });
         },
@@ -136,7 +137,7 @@ export default function ForumPage() {
       { data: { userId, content: content.trim(), moodTag: selectedMood || undefined } },
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListForumMessagesQueryKey({ moodTag: moodFilter || undefined, page, limit: 20 }) });
+          queryClient.invalidateQueries({ queryKey: getListForumMessagesQueryKey() });
           setContent("");
           setSelectedMood("");
           localStorage.setItem("muxic_lastForumPost", String(Date.now()));
