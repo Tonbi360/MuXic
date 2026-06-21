@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { useGetUser, useRegisterUser, useGetUserInbox, useGetUserActivity, getGetUserQueryKey, getGetUserInboxQueryKey } from "@workspace/api-client-react";
+import { useGetUser, useRegisterUser, useGetUserInbox, useGetUserActivity, getGetUserQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { getUserId } from "@/lib/auth";
+import { useLocation } from "wouter";
+import { getUserId, clearUserId } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { usePlayer } from "@/hooks/use-player";
-import { UserCircle, Star, Music2, Award, Inbox, Play, Edit2, Check, MessageSquare, Radio, Trophy } from "lucide-react";
+import { UserCircle, Star, Music2, Award, Inbox, Play, Edit2, Check, MessageSquare, Radio, Trophy, Trash2, AlertTriangle } from "lucide-react";
 
 const BADGE_COLORS: Record<string, string> = {
   Lyricist: "bg-purple-500/20 text-purple-400",
@@ -38,10 +39,13 @@ export default function ProfilePage() {
   const [tab, setTab] = useState<"activity" | "inbox">("activity");
   const [editing, setEditing] = useState(false);
   const [displayName, setDisplayName] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const userId = getUserId();
   const { playSong } = usePlayer();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
 
   const { data: profile, isLoading, isError } = useGetUser(userId);
   const { data: inbox } = useGetUserInbox(userId, {
@@ -82,6 +86,21 @@ export default function ProfilePage() {
         },
       }
     );
+  }
+
+  async function handleDeleteAccount() {
+    setDeleting(true);
+    try {
+      await fetch(`/api/users/${userId}`, { method: "DELETE" });
+      clearUserId();
+      queryClient.clear();
+      toast({ title: "Account deleted", description: "Your identity has been cleared." });
+      setLocation("/");
+      window.location.reload();
+    } catch {
+      toast({ title: "Failed to delete account", variant: "destructive" });
+      setDeleting(false);
+    }
   }
 
   return (
@@ -291,6 +310,47 @@ export default function ProfilePage() {
           )}
         </div>
       )}
+
+      {/* Danger Zone */}
+      <div className="border border-destructive/30 rounded-xl p-4 space-y-3">
+        <div className="flex items-center gap-2 text-destructive">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <p className="text-sm font-semibold">Danger Zone</p>
+        </div>
+        {!confirmDelete ? (
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-xs text-muted-foreground">Permanently delete your account and reset your identity. Your songs and nominations will remain but become unlinked.</p>
+            <button
+              data-testid="button-delete-account"
+              onClick={() => setConfirmDelete(true)}
+              className="flex items-center gap-2 px-3 py-2 bg-destructive/10 text-destructive border border-destructive/30 rounded-lg text-sm font-medium hover:bg-destructive/20 transition-colors shrink-0"
+            >
+              <Trash2 className="w-4 h-4" /> Delete Account
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-sm text-destructive font-medium">Are you sure? This cannot be undone.</p>
+            <div className="flex gap-2">
+              <button
+                data-testid="button-confirm-delete-account"
+                onClick={handleDeleteAccount}
+                disabled={deleting}
+                className="flex items-center gap-2 px-4 py-2 bg-destructive text-destructive-foreground rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
+              >
+                <Trash2 className="w-4 h-4" />
+                {deleting ? "Deleting…" : "Yes, delete my account"}
+              </button>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="px-4 py-2 bg-muted text-muted-foreground rounded-lg text-sm font-medium hover:text-foreground transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

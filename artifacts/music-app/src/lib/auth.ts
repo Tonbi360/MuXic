@@ -6,3 +6,7 @@ export function getUserId(): string {
   }
   return userId;
 }
+
+export function clearUserId(): void {
+  localStorage.removeItem("muxic_userId");
+}

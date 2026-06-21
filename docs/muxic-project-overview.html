@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MuXic — Project Overview</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f0f11; color: #e2e2e8; line-height: 1.7; }
+  .cover { background: linear-gradient(135deg, #1a0a1a 0%, #1c0a24 50%, #0f0f11 100%); padding: 80px 48px 60px; border-bottom: 1px solid #2a2a36; }
+  .cover h1 { font-size: 64px; font-weight: 800; font-family: Georgia, serif; letter-spacing: -2px; color: #fff; }
+  .cover h1 span { color: #e040a0; }
+  .cover .subtitle { font-size: 20px; color: #9898b0; margin-top: 8px; }
+  .cover .meta { margin-top: 32px; display: flex; gap: 32px; flex-wrap: wrap; }
+  .cover .meta-item { }
+  .cover .meta-item label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: #666; display: block; }
+  .cover .meta-item value { font-size: 15px; color: #e2e2e8; font-weight: 500; }
+  .content { max-width: 900px; margin: 0 auto; padding: 56px 48px; }
+  h2 { font-size: 28px; font-weight: 700; font-family: Georgia, serif; color: #fff; margin-top: 56px; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #2a2a36; }
+  h2:first-child { margin-top: 0; }
+  h3 { font-size: 17px; font-weight: 600; color: #c8c8e0; margin-top: 28px; margin-bottom: 10px; }
+  p { color: #9898b0; margin-bottom: 14px; }
+  .pill { display: inline-block; background: #1e1e2e; border: 1px solid #2a2a36; border-radius: 6px; padding: 3px 10px; font-size: 12px; font-family: 'Courier New', monospace; color: #b0b0c8; margin: 2px; }
+  .pill.primary { background: #3d1035; border-color: #7a2060; color: #e040a0; }
+  .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 20px; }
+  .feature-card { background: #161620; border: 1px solid #2a2a36; border-radius: 12px; padding: 20px; }
+  .feature-card .icon { font-size: 24px; margin-bottom: 10px; }
+  .feature-card h4 { font-size: 15px; font-weight: 600; color: #e2e2e8; margin-bottom: 6px; }
+  .feature-card p { font-size: 13px; color: #7070a0; margin: 0; }
+  table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 14px; }
+  thead tr { background: #161620; }
+  th { text-align: left; padding: 10px 14px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #666; border-bottom: 1px solid #2a2a36; }
+  td { padding: 10px 14px; color: #9898b0; border-bottom: 1px solid #1e1e2e; vertical-align: top; }
+  td:first-child { color: #e2e2e8; font-weight: 500; font-family: 'Courier New', monospace; font-size: 13px; }
+  tr:last-child td { border-bottom: none; }
+  .badge { display: inline-block; border-radius: 4px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
+  .badge.get { background: #0a2a0a; color: #4caf50; border: 1px solid #1a4a1a; }
+  .badge.post { background: #0a1a2a; color: #2196f3; border: 1px solid #0a2a4a; }
+  .badge.delete { background: #2a0a0a; color: #f44336; border: 1px solid #4a1a1a; }
+  .badge.patch { background: #2a1a0a; color: #ff9800; border: 1px solid #4a2a0a; }
+  .arch-row { display: grid; grid-template-columns: 180px 1fr; gap: 16px; margin-bottom: 12px; align-items: start; }
+  .arch-key { font-size: 13px; font-weight: 600; color: #e040a0; padding: 4px 0; }
+  .arch-val { font-size: 13px; color: #9898b0; }
+  .highlight { background: #1e1e2e; border: 1px solid #2a2a36; border-radius: 10px; padding: 20px 24px; margin: 16px 0; }
+  .highlight.warn { border-color: #4a3010; background: #1a1508; }
+  .highlight p { margin: 0; font-size: 14px; }
+  ul { margin: 10px 0 14px 20px; }
+  ul li { color: #9898b0; margin-bottom: 6px; font-size: 14px; }
+  ul li strong { color: #c8c8e0; }
+  .footer { background: #0a0a0f; border-top: 1px solid #1e1e2e; padding: 32px 48px; margin-top: 80px; }
+  .footer p { font-size: 13px; color: #444; margin: 0; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <h1>Mu<span>X</span>ic</h1>
+  <div class="subtitle">Community-Driven Music PWA — Full Project Overview</div>
+  <div class="meta">
+    <div class="meta-item"><label>Version</label><value>1.0</value></div>
+    <div class="meta-item"><label>Stack</label><value>React + Vite + Express + PostgreSQL</value></div>
+    <div class="meta-item"><label>Architecture</label><value>pnpm monorepo, contract-first API</value></div>
+    <div class="meta-item"><label>Auth</label><value>Anonymous UUID (no login required)</value></div>
+  </div>
+</div>
+
+<div class="content">
+
+  <h2>What Is MuXic?</h2>
+  <p>
+    MuXic is a community-driven music PWA (Progressive Web App) where users discover songs via YouTube and SoundCloud search,
+    vote on a Song Board, share a Mixed Queue jukebox, contribute to a Daily Playlist, and recommend songs in a forum-style board.
+    No account creation or login is required — each browser gets a unique anonymous identity automatically.
+  </p>
+  <p>
+    The app is designed as a shared music station: the community collectively curates what's trending, what's in the jukebox,
+    and what's recommended today. Songs that earn enough votes graduate to permanent public status.
+  </p>
+
+  <h2>Tech Stack</h2>
+  <div class="feature-grid">
+    <div class="feature-card">
+      <div class="icon">⚛️</div>
+      <h4>Frontend</h4>
+      <p>React 19 + Vite, Tailwind CSS v4, wouter routing, React Query, shadcn/ui components</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon">🚀</div>
+      <h4>Backend</h4>
+      <p>Express 5 API server, Zod validation, OpenAPI 3.1 spec, Orval codegen for React Query hooks</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon">🗃️</div>
+      <h4>Database</h4>
+      <p>PostgreSQL with Drizzle ORM, type-safe schema, drizzle-zod for validation bridging</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon">📦</div>
+      <h4>Monorepo</h4>
+      <p>pnpm workspaces, Node.js 24, TypeScript 5.9, esbuild for API bundling, shared libs</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon">🎵</div>
+      <h4>Audio</h4>
+      <p>YouTube IFrame API for YouTube tracks, HTML5 Audio for SoundCloud/direct URLs</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon">📱</div>
+      <h4>Mobile</h4>
+      <p>PWA-ready, responsive design, Media Session API for OS lock screen controls</p>
+    </div>
+  </div>
+
+  <h2>Monorepo Structure</h2>
+  <div class="highlight">
+    <pre style="font-family: 'Courier New', monospace; font-size: 13px; color: #9898b0; line-height: 1.8;">
+artifacts/
+  music-app/          ← React + Vite frontend (served at /)
+  api-server/         ← Express 5 API (served at /api)
+
+lib/
+  db/                 ← PostgreSQL schema + Drizzle ORM client
+  api-spec/           ← OpenAPI 3.1 YAML spec (source of truth)
+  api-client-react/   ← Orval-generated React Query hooks
+  api-zod/            ← Orval-generated Zod schemas for backend validation</pre>
+  </div>
+
+  <h2>Architecture Decisions</h2>
+
+  <div class="arch-row">
+    <div class="arch-key">Anonymous Identity</div>
+    <div class="arch-val">No login required. A UUID is generated and stored in localStorage on first visit. The user is auto-registered in the database on first profile view.</div>
+  </div>
+  <div class="arch-row">
+    <div class="arch-key">Contract-First API</div>
+    <div class="arch-val">The OpenAPI spec (<span class="pill">lib/api-spec/openapi.yaml</span>) is the single source of truth. Orval generates both the frontend React Query hooks and the backend Zod validation schemas from it.</div>
+  </div>
+  <div class="arch-row">
+    <div class="arch-key">Storage Tiers</div>
+    <div class="arch-val"><strong>limited</strong> (48h expiry) → <strong>permanent</strong> (user-promoted) → <strong>public_limited</strong> (community, 48h) → <strong>public_download</strong> (graduated via 50 votes, permanent)</div>
+  </div>
+  <div class="arch-row">
+    <div class="arch-key">Anti-Spam</div>
+    <div class="arch-val">Queue limited to 3 songs/hour per user (DB count). Forum has 30s cooldown (localStorage). Daily locked to 1 song/user/day. Votes and vetos deduplicated at DB level.</div>
+  </div>
+  <div class="arch-row">
+    <div class="arch-key">Proxy Routing</div>
+    <div class="arch-key">A global reverse proxy routes traffic by path: <span class="pill">/</span> → music-app, <span class="pill">/api</span> → api-server. Services never talk to each other directly.</div>
+  </div>
+
+  <h2>Features</h2>
+
+  <h3>🏠 Home</h3>
+  <ul>
+    <li>Community stats: total songs, members, votes, forum posts</li>
+    <li>Trending Now: top 5 songs by votes in last 24h (falls back to all-time if no recent votes)</li>
+    <li>Today's Daily Playlist preview (first 5 songs)</li>
+    <li>Mixed Queue status (shown when songs are queued)</li>
+  </ul>
+
+  <h3>🔍 Search</h3>
+  <ul>
+    <li>YouTube + SoundCloud tabs</li>
+    <li>Real API search when <span class="pill">YOUTUBE_API_KEY</span> is set; falls back to mock data otherwise</li>
+    <li>Play preview directly from search results (without saving)</li>
+    <li>Import button: saves song as <strong>limited (48h)</strong> to your library and auto-nominates it to the Song Board</li>
+  </ul>
+
+  <h3>📚 Library</h3>
+  <ul>
+    <li>Personal song collection (only your songs, filtered by UUID)</li>
+    <li>Storage type badges: Limited (amber), Permanent (green), Public Limited (blue), Public Download (pink)</li>
+    <li>Countdown timers on limited songs (hours and minutes remaining)</li>
+    <li>Sort by: newest, oldest, title, artist, most voted</li>
+    <li>Filter by storage type, text search by title/artist</li>
+    <li>Actions: Play, Share to inbox, Promote to permanent, Delete</li>
+    <li>Share modal: pick a user, add an optional message, sends to their inbox</li>
+  </ul>
+
+  <h3>🎵 Playlists</h3>
+  <ul>
+    <li>Create named personal playlists</li>
+    <li>Add any of your library songs to a playlist (prevents duplicates)</li>
+    <li>Remove songs from a playlist</li>
+    <li>Play songs directly from within a playlist</li>
+    <li>Delete playlists</li>
+  </ul>
+
+  <h3>🏆 Song Board</h3>
+  <ul>
+    <li><strong>Hot tab</strong>: songs ranked by votes in the last 24 hours</li>
+    <li><strong>Legends tab</strong>: all-time highest vote count</li>
+    <li><strong>Mini Board tab</strong>: all nominated songs, newest first (starting ground for new imports)</li>
+    <li>Vote on songs — deduplicated per user per song at the DB level</li>
+    <li>Already-voted songs show a disabled highlighted button</li>
+    <li><strong>Auto-graduation</strong>: when a song reaches 50 votes, it upgrades to <span class="pill primary">public_download</span> storage and its expiry is cleared permanently</li>
+  </ul>
+
+  <h3>🎚️ Mixed Queue (Shared Jukebox)</h3>
+  <ul>
+    <li>Community jukebox — anyone can add songs</li>
+    <li><strong>Token system</strong>: each user gets 3 tokens per hour; visual dot meter shows usage</li>
+    <li>Add from your library (songs already in queue are disabled)</li>
+    <li><strong>Veto system</strong>: any user can veto a song; at exactly 3 vetos the song is auto-removed</li>
+    <li>Vetos are deduplicated (can't veto the same song twice)</li>
+    <li>Play button removes the song from the queue and starts playing it</li>
+    <li>First song in queue is highlighted as "up next"</li>
+  </ul>
+
+  <h3>📅 Daily Playlist</h3>
+  <ul>
+    <li>Each user can submit exactly 1 song per day</li>
+    <li>After submitting, the button disappears and a "come back tomorrow" message shows</li>
+    <li>Resets at midnight (server date-based)</li>
+    <li>Archive tab: browse past daily playlists grouped by date</li>
+  </ul>
+
+  <h3>💬 Forum (Recommendation Board)</h3>
+  <ul>
+    <li>Post song recommendations or ask for suggestions</li>
+    <li>Mood tags: #Sad, #Happy, #Gym, #Study, #Chill, #Party, #Focus, #Sleep</li>
+    <li>Filter posts by mood tag</li>
+    <li>Paginated (20 posts per page)</li>
+    <li><strong>30-second anti-spam cooldown</strong> between posts (enforced client-side via localStorage + server-side check)</li>
+    <li>Threaded replies: click a post to expand its reply thread and add a reply</li>
+  </ul>
+
+  <h3>👤 Profile</h3>
+  <ul>
+    <li>Auto-created on first visit with a display name like "User_abc123"</li>
+    <li>Edit display name (inline edit, updates instantly)</li>
+    <li>Stats: Reputation points, songs nominated, songs uploaded</li>
+    <li>Badges: Lyricist, Music Guru, Nominator (awarded by activity)</li>
+    <li><strong>Activity tab</strong>: timeline of nominations, daily submissions, and forum posts</li>
+    <li><strong>Inbox tab</strong>: songs shared to you by other users, with sender name and optional message</li>
+    <li>Delete account: removes all profile data, clears local identity, returns to home</li>
+  </ul>
+
+  <h3>🎧 Full Player</h3>
+  <ul>
+    <li>Full-screen player at <span class="pill">/player</span></li>
+    <li>Album art, song title, artist, album</li>
+    <li>Seek bar with time display (current / total)</li>
+    <li>Volume slider</li>
+    <li>Shuffle toggle</li>
+    <li>Repeat modes: Off → Repeat One (🔂 "1") → Repeat All (🔁 "∞")</li>
+    <li>Sleep timer: 15 min / 30 min / 60 min with live countdown and cancel button</li>
+    <li>Source and storage type badges</li>
+    <li><strong>Media Session API</strong>: integrates with OS lock screen and notification controls (play/pause/next/prev + album art)</li>
+  </ul>
+
+  <h3>📱 Mini Player</h3>
+  <ul>
+    <li>Persistent bar at the bottom of every page (except the full player)</li>
+    <li>Shows song cover art, title, artist</li>
+    <li>Quick play/pause and next buttons</li>
+    <li>"Full player" link to expand</li>
+    <li>On desktop: positioned to the right of the sidebar; on mobile: above the bottom nav bar</li>
+  </ul>
+
+  <h2>API Endpoints</h2>
+
+  <h3>Songs</h3>
+  <table>
+    <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><span class="badge get">GET</span></td><td>/api/songs</td><td>List songs (filter: category, storageType, search, sort)</td></tr>
+      <tr><td><span class="badge post">POST</span></td><td>/api/songs</td><td>Create / import a song</td></tr>
+      <tr><td><span class="badge get">GET</span></td><td>/api/songs/:id</td><td>Get a single song</td></tr>
+      <tr><td><span class="badge patch">PATCH</span></td><td>/api/songs/:id</td><td>Update song metadata</td></tr>
+      <tr><td><span class="badge delete">DELETE</span></td><td>/api/songs/:id</td><td>Delete a song</td></tr>
+      <tr><td><span class="badge post">POST</span></td><td>/api/songs/:id/promote</td><td>Change storage tier (e.g. limited → permanent)</td></tr>
+      <tr><td><span class="badge post">POST</span></td><td>/api/songs/:id/tags</td><td>Add a tag to a song</td></tr>
+      <tr><td><span class="badge get">GET</span></td><td>/api/categories</td><td>List song categories with counts</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Search & Import</h3>
+  <table>
+    <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><span class="badge get">GET</span></td><td>/api/search/youtube</td><td>Search YouTube (real or mock)</td></tr>
+      <tr><td><span class="badge get">GET</span></td><td>/api/search/soundcloud</td><td>Search SoundCloud (real or mock)</td></tr>
+      <tr><td><span class="badge post">POST</span></td><td>/api/search/import</td><td>Import a search result into the library</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Song Board</h3>
+  <table>
+    <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><span class="badge get">GET</span></td><td>/api/songboard</td><td>List board entries (tab: hot / legends / mini)</td></tr>
+      <tr><td><span class="badge post">POST</span></td><td>/api/songboard/:songId/vote</td><td>Vote on a song (deduped per user)</td></tr>
+      <tr><td><span class="badge post">POST</span></td><td>/api/songboard/:songId/nominate</td><td>Nominate a song to the board</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Mixed Queue</h3>
+  <table>
+    <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><span class="badge get">GET</span></td><td>/api/queue</td><td>Get current queue (ordered by position)</td></tr>
+      <tr><td><span class="badge post">POST</span></td><td>/api/queue</td><td>Add song to queue (enforces 3/hr token limit)</td></tr>
+      <tr><td><span class="badge post">POST</span></td><td>/api/queue/:id/veto</td><td>Veto a queue entry (auto-removes at 3 vetos)</td></tr>
+      <tr><td><span class="badge delete">DELETE</span></td><td>/api/queue/:id</td><td>Remove an entry from the queue</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Daily Playlist</h3>
+  <table>
+    <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><span class="badge get">GET</span></td><td>/api/daily</td><td>Get today's playlist entries</td></tr>
+      <tr><td><span class="badge post">POST</span></td><td>/api/daily</td><td>Submit a song for today (1 per user per day)</td></tr>
+      <tr><td><span class="badge get">GET</span></td><td>/api/daily/archive</td><td>Browse past daily playlists</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Forum</h3>
+  <table>
+    <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><span class="badge get">GET</span></td><td>/api/forum</td><td>List posts (filter: moodTag, page, limit)</td></tr>
+      <tr><td><span class="badge post">POST</span></td><td>/api/forum</td><td>Create a post (30s cooldown enforced)</td></tr>
+      <tr><td><span class="badge get">GET</span></td><td>/api/forum/:id/replies</td><td>Get replies for a post</td></tr>
+      <tr><td><span class="badge post">POST</span></td><td>/api/forum/:id/replies</td><td>Reply to a post</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Users & Profile</h3>
+  <table>
+    <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><span class="badge get">GET</span></td><td>/api/users</td><td>List all users (for sharing UI)</td></tr>
+      <tr><td><span class="badge get">GET</span></td><td>/api/users/:userId</td><td>Get user profile (reputation, badges, counts)</td></tr>
+      <tr><td><span class="badge post">POST</span></td><td>/api/users/:userId/register</td><td>Create or update user (upsert by userId)</td></tr>
+      <tr><td><span class="badge delete">DELETE</span></td><td>/api/users/:userId</td><td>Delete account and all associated data</td></tr>
+      <tr><td><span class="badge get">GET</span></td><td>/api/users/:userId/activity</td><td>Get user activity timeline</td></tr>
+      <tr><td><span class="badge get">GET</span></td><td>/api/users/:userId/inbox</td><td>Get inbox (shared songs)</td></tr>
+      <tr><td><span class="badge post">POST</span></td><td>/api/users/share</td><td>Share a song to another user's inbox</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Stats</h3>
+  <table>
+    <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><span class="badge get">GET</span></td><td>/api/stats</td><td>Community stats (songs, users, votes, etc.)</td></tr>
+      <tr><td><span class="badge get">GET</span></td><td>/api/stats/trending</td><td>Top songs by recent votes (24h window)</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Database Schema</h2>
+  <div class="feature-grid">
+    <div class="feature-card">
+      <h4>songs</h4>
+      <p>id, title, artist, album, duration, coverUrl, source, sourceUrl, storageType, category, tags[], userId, expiresAt, voteCount, isPublic, createdAt</p>
+    </div>
+    <div class="feature-card">
+      <h4>users</h4>
+      <p>userId (UUID), displayName, reputation, badges[], createdAt</p>
+    </div>
+    <div class="feature-card">
+      <h4>board_entries</h4>
+      <p>id, songId, nominatedBy, voteCount, createdAt</p>
+    </div>
+    <div class="feature-card">
+      <h4>votes</h4>
+      <p>id, songId, userId, createdAt — unique per (songId, userId)</p>
+    </div>
+    <div class="feature-card">
+      <h4>queue</h4>
+      <p>id, songId, userId, vetoCount, position, createdAt</p>
+    </div>
+    <div class="feature-card">
+      <h4>queue_vetos</h4>
+      <p>id, queueId, userId — unique per (queueId, userId)</p>
+    </div>
+    <div class="feature-card">
+      <h4>daily_playlist</h4>
+      <p>id, songId, userId, date (YYYY-MM-DD), createdAt</p>
+    </div>
+    <div class="feature-card">
+      <h4>forum</h4>
+      <p>id, userId, content, moodTag, parentId (for replies), createdAt</p>
+    </div>
+    <div class="feature-card">
+      <h4>playlists</h4>
+      <p>id, name, userId, isPublic, createdAt</p>
+    </div>
+    <div class="feature-card">
+      <h4>playlist_songs</h4>
+      <p>playlistId, songId, addedAt — unique per (playlistId, songId)</p>
+    </div>
+    <div class="feature-card">
+      <h4>inbox</h4>
+      <p>id, fromUserId, toUserId, songId, message, createdAt</p>
+    </div>
+  </div>
+
+  <h2>Environment Variables</h2>
+  <table>
+    <thead><tr><th>Variable</th><th>Required</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td>DATABASE_URL</td><td>✅ Yes</td><td>PostgreSQL connection string</td></tr>
+      <tr><td>SESSION_SECRET</td><td>✅ Yes</td><td>Secret for session signing</td></tr>
+      <tr><td>YOUTUBE_API_KEY</td><td>Optional</td><td>Enables real YouTube search. Falls back to mock data if not set.</td></tr>
+      <tr><td>SOUNDCLOUD_CLIENT_ID</td><td>Optional</td><td>Enables real SoundCloud search. Falls back to mock data if not set.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Developer Commands</h2>
+  <table>
+    <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td>pnpm --filter @workspace/api-server run dev</td><td>Run the API server (port 8080)</td></tr>
+      <tr><td>pnpm --filter @workspace/music-app run dev</td><td>Run the frontend dev server</td></tr>
+      <tr><td>pnpm run typecheck</td><td>Full TypeScript check across all packages</td></tr>
+      <tr><td>pnpm run build</td><td>Typecheck + build all packages</td></tr>
+      <tr><td>pnpm --filter @workspace/api-spec run codegen</td><td>Regenerate hooks + Zod schemas from OpenAPI spec</td></tr>
+      <tr><td>pnpm --filter @workspace/db run push</td><td>Push schema changes to the database (dev only)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="highlight warn" style="margin-top: 32px;">
+    <p>⚠️ <strong>Always run codegen</strong> after modifying <code>lib/api-spec/openapi.yaml</code>, and <strong>always run db push</strong> after modifying schema files in <code>lib/db/src/schema/</code>. Restart the API server workflow after any route changes to pick up the new build.</p>
+  </div>
+
+</div>
+
+<div class="footer">
+  <p>MuXic — Community Music PWA &nbsp;·&nbsp; Built with React, Express, PostgreSQL, and pnpm workspaces</p>
+</div>
+
+</body>
+</html>

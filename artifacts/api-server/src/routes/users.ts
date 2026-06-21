@@ -167,6 +167,16 @@ router.get("/users/:userId/activity", async (req, res): Promise<void> => {
   res.json(activities);
 });
 
+router.delete("/users/:userId", async (req, res): Promise<void> => {
+  const userId = req.params.userId;
+  if (!userId) {
+    res.status(400).json({ error: "Missing userId" });
+    return;
+  }
+  await db.delete(usersTable).where(eq(usersTable.userId, userId));
+  res.sendStatus(204);
+});
+
 router.post("/users/share", async (req, res): Promise<void> => {
   const parsed = ShareSongBody.safeParse(req.body);
   if (!parsed.success) {

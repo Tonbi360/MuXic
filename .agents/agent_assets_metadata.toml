@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "8Bp0KKtKDmm3gmF6IGcpO"
+uri = "file://docs/muxic-project-overview.md"
+type = "text"
+title = "MuXic — Full Project Overview"
