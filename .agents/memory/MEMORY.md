@@ -1,0 +1,3 @@
+- [Playlist add-song gap](playlist-add-song.md) — addSongToPlaylist/removeSongFromPlaylist hooks and backend existed but had no UI; fixed in playlists.tsx
+- [Display names vs UUIDs](display-names.md) — Song Board, Daily, Queue all showed truncated UUIDs; fixed by fetching useListUsers and building a Map on the frontend
+- [Profile 404 on load](profile-404.md) — GET /users/:userId always 404s before auto-register; this is documented expected behavior, not a bug

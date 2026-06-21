@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useGetQueue, useAddToQueue, useVetoQueueEntry, useRemoveFromQueue, useListSongs, getGetQueueQueryKey } from "@workspace/api-client-react";
+import { useGetQueue, useAddToQueue, useVetoQueueEntry, useRemoveFromQueue, useListSongs, useListUsers, getGetQueueQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePlayer } from "@/hooks/use-player";
 import { getUserId } from "@/lib/auth";
@@ -16,20 +16,20 @@ export default function QueuePage() {
 
   const { data: queue, isLoading } = useGetQueue();
   const { data: mySongs } = useListSongs();
+  const { data: users } = useListUsers();
   const addMutation = useAddToQueue();
   const vetoMutation = useVetoQueueEntry();
   const removeMutation = useRemoveFromQueue();
 
+  const userMap = new Map((users ?? []).map((u) => [u.userId, u.displayName]));
   const userSongs = (mySongs ?? []).filter((s) => s.userId === userId);
 
-  // Token usage: count how many songs this user added in the last hour
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
   const myTokensUsed = (queue ?? []).filter(
     (e) => e.userId === userId && new Date(e.createdAt) > oneHourAgo
   ).length;
   const tokensLeft = Math.max(0, 3 - myTokensUsed);
 
-  // Determine which songs are already in queue (avoid duplicates)
   const queuedSongIds = new Set((queue ?? []).map((e) => e.songId));
 
   function handleAdd() {
@@ -179,62 +179,66 @@ export default function QueuePage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {queue.map((entry, idx) => (
-            <div
-              key={entry.id}
-              data-testid={`queue-entry-${entry.id}`}
-              className={`bg-card border rounded-xl p-4 flex items-center gap-4 ${
-                idx === 0 ? "border-primary/50 bg-primary/5" : "border-border"
-              }`}
-            >
-              {idx === 0 ? (
-                <span className="text-xs font-bold text-primary uppercase tracking-wider w-6 shrink-0 text-center">▶</span>
-              ) : (
-                <span className="text-lg font-bold font-serif text-muted-foreground w-6 shrink-0 text-center">
-                  {idx + 1}
-                </span>
-              )}
-              {entry.song?.coverUrl ? (
-                <img src={entry.song.coverUrl} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />
-              ) : (
-                <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center shrink-0">
-                  <Music2 className="w-5 h-5 text-muted-foreground" />
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold truncate">{entry.song?.title}</p>
-                <p className="text-sm text-muted-foreground truncate">{entry.song?.artist}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  added by{" "}
-                  <span className={entry.userId === userId ? "text-primary" : ""}>
-                    {entry.userId === userId ? "you" : entry.userId.slice(0, 8) + "…"}
+          {queue.map((entry, idx) => {
+            const addedByName = userMap.get(entry.userId) ?? entry.userId.slice(0, 8) + "…";
+            const isMe = entry.userId === userId;
+            return (
+              <div
+                key={entry.id}
+                data-testid={`queue-entry-${entry.id}`}
+                className={`bg-card border rounded-xl p-4 flex items-center gap-4 ${
+                  idx === 0 ? "border-primary/50 bg-primary/5" : "border-border"
+                }`}
+              >
+                {idx === 0 ? (
+                  <span className="text-xs font-bold text-primary uppercase tracking-wider w-6 shrink-0 text-center">▶</span>
+                ) : (
+                  <span className="text-lg font-bold font-serif text-muted-foreground w-6 shrink-0 text-center">
+                    {idx + 1}
                   </span>
-                </p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {entry.vetoCount > 0 && (
-                  <span className="text-xs text-destructive font-medium">{entry.vetoCount}/3</span>
                 )}
-                <button
-                  data-testid={`button-play-queue-${entry.id}`}
-                  onClick={() => handlePlay(entry)}
-                  className="p-2 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
-                  title="Play now"
-                >
-                  <Play className="w-4 h-4" />
-                </button>
-                <button
-                  data-testid={`button-veto-${entry.id}`}
-                  onClick={() => handleVeto(entry.id)}
-                  disabled={vetoMutation.isPending}
-                  className="p-2 bg-destructive/10 text-destructive rounded-lg hover:bg-destructive/20 transition-colors disabled:opacity-50"
-                  title="Veto (3 = removed)"
-                >
-                  <ThumbsDown className="w-4 h-4" />
-                </button>
+                {entry.song?.coverUrl ? (
+                  <img src={entry.song.coverUrl} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />
+                ) : (
+                  <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center shrink-0">
+                    <Music2 className="w-5 h-5 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold truncate">{entry.song?.title}</p>
+                  <p className="text-sm text-muted-foreground truncate">{entry.song?.artist}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    added by{" "}
+                    <span className={isMe ? "text-primary font-medium" : ""}>
+                      {isMe ? "you" : addedByName}
+                    </span>
+                    {entry.vetoCount > 0 && (
+                      <span className="ml-2 text-destructive">{entry.vetoCount}/3 vetos</span>
+                    )}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    data-testid={`button-play-queue-${entry.id}`}
+                    onClick={() => handlePlay(entry)}
+                    className="p-2 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
+                    title="Play now"
+                  >
+                    <Play className="w-4 h-4" />
+                  </button>
+                  <button
+                    data-testid={`button-veto-${entry.id}`}
+                    onClick={() => handleVeto(entry.id)}
+                    disabled={vetoMutation.isPending}
+                    className="p-2 bg-destructive/10 text-destructive rounded-lg hover:bg-destructive/20 transition-colors disabled:opacity-50"
+                    title="Veto (3 = removed)"
+                  >
+                    <ThumbsDown className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

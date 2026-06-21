@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useGetDailyPlaylist, useSubmitToDaily, useGetDailyArchive, useListSongs, getGetDailyPlaylistQueryKey } from "@workspace/api-client-react";
+import { useGetDailyPlaylist, useSubmitToDaily, useGetDailyArchive, useListSongs, useListUsers, getGetDailyPlaylistQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePlayer } from "@/hooks/use-player";
 import { getUserId } from "@/lib/auth";
@@ -22,8 +22,10 @@ export default function DailyPage() {
     query: { enabled: tab === "archive", queryKey: ["getDailyArchive"] },
   });
   const { data: mySongs } = useListSongs();
+  const { data: users } = useListUsers();
   const submitMutation = useSubmitToDaily();
 
+  const userMap = new Map((users ?? []).map((u) => [u.userId, u.displayName]));
   const userSongs = (mySongs ?? []).filter((s) => s.userId === userId);
   const alreadySubmitted = (daily ?? []).some((e) => e.userId === userId);
 
@@ -147,28 +149,37 @@ export default function DailyPage() {
           </div>
         ) : (
           <div className="space-y-2">
-            {daily.map((entry) => (
-              <button
-                key={entry.id}
-                data-testid={`daily-song-${entry.id}`}
-                onClick={() => entry.song && playSong(entry.song)}
-                className="w-full bg-card border border-border rounded-xl p-4 flex items-center gap-4 hover:border-primary/40 transition-colors text-left"
-              >
-                {entry.song?.coverUrl ? (
-                  <img src={entry.song.coverUrl} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />
-                ) : (
-                  <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center shrink-0">
-                    <Music2 className="w-5 h-5 text-muted-foreground" />
+            {daily.map((entry) => {
+              const submitterName = userMap.get(entry.userId) ?? entry.userId.slice(0, 8) + "…";
+              const isMe = entry.userId === userId;
+              return (
+                <button
+                  key={entry.id}
+                  data-testid={`daily-song-${entry.id}`}
+                  onClick={() => entry.song && playSong(entry.song)}
+                  className="w-full bg-card border border-border rounded-xl p-4 flex items-center gap-4 hover:border-primary/40 transition-colors text-left"
+                >
+                  {entry.song?.coverUrl ? (
+                    <img src={entry.song.coverUrl} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />
+                  ) : (
+                    <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center shrink-0">
+                      <Music2 className="w-5 h-5 text-muted-foreground" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold truncate">{entry.song?.title}</p>
+                    <p className="text-sm text-muted-foreground truncate">{entry.song?.artist}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      by{" "}
+                      <span className={isMe ? "text-primary font-medium" : ""}>
+                        {isMe ? "you" : submitterName}
+                      </span>
+                    </p>
                   </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold truncate">{entry.song?.title}</p>
-                  <p className="text-sm text-muted-foreground truncate">{entry.song?.artist}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">by {entry.userId.slice(0, 8)}...</p>
-                </div>
-                <Play className="w-5 h-5 text-muted-foreground shrink-0" />
-              </button>
-            ))}
+                  <Play className="w-5 h-5 text-muted-foreground shrink-0" />
+                </button>
+              );
+            })}
           </div>
         )
       ) : (

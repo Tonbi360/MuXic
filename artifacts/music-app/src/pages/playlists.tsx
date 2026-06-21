@@ -1,10 +1,19 @@
 import { useState } from "react";
-import { useListPlaylists, useCreatePlaylist, useDeletePlaylist, useGetPlaylist, getListPlaylistsQueryKey } from "@workspace/api-client-react";
+import {
+  useListPlaylists,
+  useCreatePlaylist,
+  useDeletePlaylist,
+  useGetPlaylist,
+  useAddSongToPlaylist,
+  useRemoveSongFromPlaylist,
+  useListSongs,
+  getListPlaylistsQueryKey,
+} from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePlayer } from "@/hooks/use-player";
 import { getUserId } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { ListMusic, Plus, Trash2, Play, ChevronRight, Music2, X } from "lucide-react";
+import { ListMusic, Plus, Trash2, Play, ChevronRight, Music2, X, PlusCircle } from "lucide-react";
 
 export default function PlaylistsPage() {
   const userId = getUserId();
@@ -13,14 +22,21 @@ export default function PlaylistsPage() {
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [showAddSong, setShowAddSong] = useState(false);
   const [newName, setNewName] = useState("");
 
   const { data: playlists, isLoading } = useListPlaylists({ userId });
-  const { data: selected } = useGetPlaylist(selectedId!, {
+  const { data: selected, refetch: refetchSelected } = useGetPlaylist(selectedId!, {
     query: { enabled: !!selectedId, queryKey: ["getPlaylist", selectedId] },
   });
+  const { data: allSongs } = useListSongs();
   const createMutation = useCreatePlaylist();
   const deleteMutation = useDeletePlaylist();
+  const addSongMutation = useAddSongToPlaylist();
+  const removeSongMutation = useRemoveSongFromPlaylist();
+
+  const userSongs = (allSongs ?? []).filter((s) => s.userId === userId);
+  const playlistSongIds = new Set((selected?.songs ?? []).map((s) => s.id));
 
   function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -46,6 +62,37 @@ export default function PlaylistsPage() {
         toast({ title: "Deleted", description: `"${name}" removed` });
       },
     });
+  }
+
+  function handleAddSong(songId: number) {
+    if (!selectedId) return;
+    addSongMutation.mutate(
+      { id: selectedId, data: { songId } },
+      {
+        onSuccess: () => {
+          refetchSelected();
+          queryClient.invalidateQueries({ queryKey: getListPlaylistsQueryKey({ userId }) });
+          toast({ title: "Song added to playlist" });
+        },
+        onError: () => {
+          toast({ title: "Failed to add song", variant: "destructive" });
+        },
+      }
+    );
+  }
+
+  function handleRemoveSong(songId: number, title: string) {
+    if (!selectedId) return;
+    removeSongMutation.mutate(
+      { id: selectedId, songId },
+      {
+        onSuccess: () => {
+          refetchSelected();
+          queryClient.invalidateQueries({ queryKey: getListPlaylistsQueryKey({ userId }) });
+          toast({ title: "Removed", description: `"${title}" removed from playlist` });
+        },
+      }
+    );
   }
 
   return (
@@ -105,7 +152,7 @@ export default function PlaylistsPage() {
               <button
                 key={pl.id}
                 data-testid={`playlist-card-${pl.id}`}
-                onClick={() => setSelectedId(selectedId === pl.id ? null : pl.id)}
+                onClick={() => { setSelectedId(selectedId === pl.id ? null : pl.id); setShowAddSong(false); }}
                 className={`w-full bg-card border rounded-xl p-4 flex items-center gap-3 text-left transition-colors hover:border-primary/40 ${selectedId === pl.id ? "border-primary" : "border-border"}`}
               >
                 <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center shrink-0">
@@ -132,40 +179,106 @@ export default function PlaylistsPage() {
 
         {/* Selected playlist songs */}
         {selectedId && (
-          <div className="space-y-2">
-            <h2 className="font-bold text-lg font-serif">{selected?.name}</h2>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold text-lg font-serif">{selected?.name}</h2>
+              <button
+                data-testid="button-add-song-to-playlist"
+                onClick={() => setShowAddSong(!showAddSong)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-muted hover:bg-muted/80 rounded-lg text-sm font-medium transition-colors"
+              >
+                <PlusCircle className="w-4 h-4" /> Add song
+              </button>
+            </div>
+
+            {/* Song picker */}
+            {showAddSong && (
+              <div className="bg-card border border-border rounded-xl p-3 space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Your library</p>
+                <div className="max-h-44 overflow-y-auto space-y-1">
+                  {userSongs.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-3">No songs in library</p>
+                  ) : (
+                    userSongs.map((song) => {
+                      const alreadyIn = playlistSongIds.has(song.id);
+                      return (
+                        <button
+                          key={song.id}
+                          data-testid={`add-song-to-playlist-${song.id}`}
+                          onClick={() => !alreadyIn && handleAddSong(song.id)}
+                          disabled={alreadyIn || addSongMutation.isPending}
+                          className={`w-full flex items-center gap-2 p-2 rounded-lg text-left text-sm transition-colors ${
+                            alreadyIn ? "opacity-40 cursor-default" : "hover:bg-muted"
+                          }`}
+                        >
+                          {song.coverUrl ? (
+                            <img src={song.coverUrl} alt="" className="w-7 h-7 rounded object-cover shrink-0" />
+                          ) : (
+                            <Music2 className="w-4 h-4 text-muted-foreground shrink-0" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{song.title}</p>
+                            <p className="text-xs text-muted-foreground truncate">{song.artist}</p>
+                          </div>
+                          {alreadyIn ? (
+                            <span className="text-xs text-muted-foreground shrink-0">added</span>
+                          ) : (
+                            <Plus className="w-4 h-4 text-primary shrink-0" />
+                          )}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Songs in playlist */}
             {!selected?.songs || selected.songs.length === 0 ? (
               <div className="text-center py-10 text-muted-foreground">
                 <Music2 className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                <p className="text-sm">No songs yet. Add songs from your library.</p>
+                <p className="text-sm">No songs yet. Click "Add song" to get started.</p>
               </div>
             ) : (
-              selected.songs.map((song) => (
-                <div
-                  key={song.id}
-                  data-testid={`playlist-song-${song.id}`}
-                  className="bg-card border border-border rounded-lg p-3 flex items-center gap-3"
-                >
-                  {song.coverUrl ? (
-                    <img src={song.coverUrl} alt="" className="w-10 h-10 rounded object-cover shrink-0" />
-                  ) : (
-                    <div className="w-10 h-10 bg-muted rounded flex items-center justify-center shrink-0">
-                      <Music2 className="w-4 h-4 text-muted-foreground" />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{song.title}</p>
-                    <p className="text-xs text-muted-foreground truncate">{song.artist}</p>
-                  </div>
-                  <button
-                    data-testid={`button-play-playlist-song-${song.id}`}
-                    onClick={() => playSong(song)}
-                    className="p-2 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
+              <div className="space-y-1">
+                {selected.songs.map((song) => (
+                  <div
+                    key={song.id}
+                    data-testid={`playlist-song-${song.id}`}
+                    className="bg-card border border-border rounded-lg p-3 flex items-center gap-3"
                   >
-                    <Play className="w-4 h-4" />
-                  </button>
-                </div>
-              ))
+                    {song.coverUrl ? (
+                      <img src={song.coverUrl} alt="" className="w-10 h-10 rounded object-cover shrink-0" />
+                    ) : (
+                      <div className="w-10 h-10 bg-muted rounded flex items-center justify-center shrink-0">
+                        <Music2 className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{song.title}</p>
+                      <p className="text-xs text-muted-foreground truncate">{song.artist}</p>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        data-testid={`button-play-playlist-song-${song.id}`}
+                        onClick={() => playSong(song)}
+                        className="p-2 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
+                      >
+                        <Play className="w-4 h-4" />
+                      </button>
+                      <button
+                        data-testid={`button-remove-playlist-song-${song.id}`}
+                        onClick={() => handleRemoveSong(song.id, song.title)}
+                        disabled={removeSongMutation.isPending}
+                        className="p-2 text-muted-foreground hover:text-destructive transition-colors"
+                        title="Remove from playlist"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}

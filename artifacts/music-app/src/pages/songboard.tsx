@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useListSongBoard, useVoteSong, useNominateSong, getListSongBoardQueryKey } from "@workspace/api-client-react";
+import { useListSongBoard, useVoteSong, useNominateSong, useListUsers, getListSongBoardQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePlayer } from "@/hooks/use-player";
 import { getUserId } from "@/lib/auth";
@@ -16,7 +16,10 @@ export default function SongboardPage() {
   const queryClient = useQueryClient();
 
   const { data: entries, isLoading } = useListSongBoard({ tab, limit: 30, userId });
+  const { data: users } = useListUsers();
   const voteMutation = useVoteSong();
+
+  const userMap = new Map((users ?? []).map((u) => [u.userId, u.displayName]));
 
   function handleVote(songId: number) {
     voteMutation.mutate(
@@ -81,53 +84,62 @@ export default function SongboardPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {entries.map((entry, i) => (
-            <div
-              key={entry.id}
-              data-testid={`board-entry-${entry.id}`}
-              className="bg-card border border-border rounded-xl p-4 flex items-center gap-4 hover:border-primary/30 transition-colors"
-            >
-              {tab !== "mini" && (
-                <span className="text-xl font-bold font-serif text-muted-foreground w-7 shrink-0 text-center">
-                  {i + 1}
-                </span>
-              )}
-              {entry.song?.coverUrl ? (
-                <img src={entry.song.coverUrl} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />
-              ) : (
-                <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center shrink-0">
-                  <Music2 className="w-5 h-5 text-muted-foreground" />
+          {entries.map((entry, i) => {
+            const nominatorName = userMap.get(entry.nominatedBy) ?? entry.nominatedBy.slice(0, 8) + "…";
+            const isMe = entry.nominatedBy === userId;
+            return (
+              <div
+                key={entry.id}
+                data-testid={`board-entry-${entry.id}`}
+                className="bg-card border border-border rounded-xl p-4 flex items-center gap-4 hover:border-primary/30 transition-colors"
+              >
+                {tab !== "mini" && (
+                  <span className="text-xl font-bold font-serif text-muted-foreground w-7 shrink-0 text-center">
+                    {i + 1}
+                  </span>
+                )}
+                {entry.song?.coverUrl ? (
+                  <img src={entry.song.coverUrl} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />
+                ) : (
+                  <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center shrink-0">
+                    <Music2 className="w-5 h-5 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold truncate">{entry.song?.title}</p>
+                  <p className="text-sm text-muted-foreground truncate">{entry.song?.artist}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    nominated by{" "}
+                    <span className={isMe ? "text-primary font-medium" : ""}>
+                      {isMe ? "you" : nominatorName}
+                    </span>
+                  </p>
                 </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold truncate">{entry.song?.title}</p>
-                <p className="text-sm text-muted-foreground truncate">{entry.song?.artist}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">by {entry.nominatedBy.slice(0, 8)}...</p>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    data-testid={`button-play-board-${entry.id}`}
+                    onClick={() => entry.song && playSong(entry.song)}
+                    className="p-2 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
+                  >
+                    <Play className="w-4 h-4" />
+                  </button>
+                  <button
+                    data-testid={`button-vote-${entry.id}`}
+                    onClick={() => handleVote(entry.songId)}
+                    disabled={entry.userVoted || voteMutation.isPending}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      entry.userVoted
+                        ? "bg-primary/20 text-primary cursor-default"
+                        : "bg-primary text-primary-foreground hover:opacity-90"
+                    } disabled:opacity-60`}
+                  >
+                    <ThumbsUp className="w-4 h-4" />
+                    <span>{entry.voteCount}</span>
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  data-testid={`button-play-board-${entry.id}`}
-                  onClick={() => entry.song && playSong(entry.song)}
-                  className="p-2 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
-                >
-                  <Play className="w-4 h-4" />
-                </button>
-                <button
-                  data-testid={`button-vote-${entry.id}`}
-                  onClick={() => handleVote(entry.songId)}
-                  disabled={entry.userVoted || voteMutation.isPending}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    entry.userVoted
-                      ? "bg-primary/20 text-primary cursor-default"
-                      : "bg-primary text-primary-foreground hover:opacity-90"
-                  } disabled:opacity-60`}
-                >
-                  <ThumbsUp className="w-4 h-4" />
-                  <span>{entry.voteCount}</span>
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
