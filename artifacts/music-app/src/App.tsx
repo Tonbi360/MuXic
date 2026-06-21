@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Switch, Route, Router as WouterRouter, Link, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -16,8 +17,9 @@ import ProfilePage from "@/pages/profile";
 import PlayerPage from "@/pages/player";
 import {
   Home, Search, ListMusic, Mic2,
-  Calendar, MessageSquare, UserCircle,
-  PlayCircle, Pause, SkipForward, Trophy, Radio
+  MessageSquare, UserCircle,
+  PlayCircle, Pause, SkipForward, Trophy, Radio,
+  Menu, X,
 } from "lucide-react";
 
 function MiniPlayer() {
@@ -123,6 +125,39 @@ function Sidebar() {
   );
 }
 
+function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+  if (!open) return null;
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/60 z-[60] md:hidden" onClick={onClose} />
+      <div className="fixed top-0 left-0 bottom-0 w-[280px] bg-card border-r border-border z-[60] flex flex-col md:hidden">
+        <div className="p-5 flex items-center justify-between border-b border-border shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0">
+              <Mic2 className="w-4 h-4 text-white" />
+            </div>
+            <span className="font-serif font-bold tracking-tight text-xl text-primary">MuXic</span>
+          </div>
+          <button onClick={onClose} className="p-1 text-muted-foreground hover:text-foreground">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <nav className="flex-1 px-3 py-3 space-y-1 overflow-y-auto" onClick={onClose}>
+          {navItems.map((item) => (
+            <NavLink key={item.href} {...item} />
+          ))}
+          <div className="pt-4 pb-1 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Community</div>
+          {communityItems.map((item) => (
+            <NavLink key={item.href} {...item} />
+          ))}
+          <div className="pt-4 pb-1 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">You</div>
+          <NavLink href="/profile" icon={UserCircle} label="Profile" />
+        </nav>
+      </div>
+    </>
+  );
+}
+
 function MobileNav() {
   const [location] = useLocation();
   const mobileItems = [
@@ -149,10 +184,25 @@ function MobileNav() {
 }
 
 function Layout({ children }: { children: React.ReactNode }) {
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
   return (
     <div className="flex h-[100dvh] bg-background text-foreground overflow-hidden">
       <Sidebar />
+      <MobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
       <div className="flex-1 flex flex-col relative overflow-hidden">
+        {/* Mobile header bar */}
+        <div className="md:hidden flex items-center justify-between px-4 h-12 border-b border-border bg-card shrink-0">
+          <button
+            onClick={() => setDrawerOpen(true)}
+            className="p-1 -ml-1 text-muted-foreground hover:text-foreground transition-colors"
+            aria-label="Open menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <span className="font-serif font-bold text-primary tracking-tight">MuXic</span>
+          <div className="w-7" />
+        </div>
         <main className="flex-1 overflow-y-auto pb-32 md:pb-20">
           {children}
         </main>
