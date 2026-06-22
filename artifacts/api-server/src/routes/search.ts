@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { songsTable } from "@workspace/db";
 import { SearchYoutubeQueryParams, SearchSoundcloudQueryParams, ImportFromSearchBody } from "@workspace/api-zod";
+import { eq } from "drizzle-orm";
 import { toSongResponse } from "./songs";
 
 const router: IRouter = Router();
@@ -50,7 +51,6 @@ async function searchSoundCloud(query: string) {
         user: { username: string };
         duration: number;
         artwork_url: string | null;
-        permalink_url: string;
         stream_url: string;
       }>;
     };
@@ -62,7 +62,7 @@ async function searchSoundCloud(query: string) {
       duration: Math.round(track.duration / 1000),
       coverUrl: track.artwork_url,
       source: "soundcloud" as const,
-      streamUrl: track.permalink_url,
+      streamUrl: `${track.stream_url}?client_id=${clientId}`,
     }));
   } catch {
     return getMockResults(query, "soundcloud");
@@ -70,12 +70,11 @@ async function searchSoundCloud(query: string) {
 }
 
 function getMockResults(query: string, source: "youtube" | "soundcloud") {
-  const artists = ["The Weeknd", "Billie Eilish", "Drake", "Doja Cat", "Tyler the Creator"];
   return Array.from({ length: 5 }, (_, i) => ({
-    externalId: `mock-${source}-${i}-${Date.now()}`,
+    externalId: `mock-${source}-${i}`,
     title: `${query} - Track ${i + 1}`,
-    artist: artists[i % artists.length],
-    duration: 180 + i * 20,
+    artist: `Artist ${i + 1}`,
+    duration: 180 + i * 30,
     coverUrl: null,
     source,
     streamUrl: source === "youtube"
@@ -112,6 +111,21 @@ router.post("/search/import", async (req, res): Promise<void> => {
   }
 
   const d = parsed.data;
+
+  // Global duplicate prevention — one song per sourceUrl across all users
+  const [existingSong] = await db
+    .select()
+    .from(songsTable)
+    .where(eq(songsTable.sourceUrl, d.streamUrl));
+
+  if (existingSong) {
+    res.status(409).json({
+      error: `"${existingSong.title}" is already in the system. Check the Song Board to find it.`,
+      song: toSongResponse(existingSong),
+    });
+    return;
+  }
+
   const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
 
   const [song] = await db

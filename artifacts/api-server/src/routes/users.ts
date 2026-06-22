@@ -1,6 +1,13 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { usersTable, inboxTable, songsTable, boardEntriesTable, dailyPlaylistTable, forumTable } from "@workspace/db";
+import {
+  usersTable,
+  inboxTable,
+  songsTable,
+  boardEntriesTable,
+  dailyPlaylistTable,
+  forumTable,
+} from "@workspace/db";
 import { eq, sql, desc } from "drizzle-orm";
 import {
   GetUserParams,
@@ -13,36 +20,60 @@ import { toSongResponse } from "./songs";
 
 const router: IRouter = Router();
 
+// Inbox share cooldown — prevents spam
+const inboxCooldownMap: Map<string, number> = new Map();
+const INBOX_COOLDOWN_MS = 30 * 1000;
+
 async function buildUserProfile(user: typeof usersTable.$inferSelect) {
-  const [nominatedCount] = await db
+  const [nominatedResult] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(boardEntriesTable)
     .where(eq(boardEntriesTable.nominatedBy, user.userId));
 
-  const [uploadCount] = await db
+  const [uploadResult] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(songsTable)
     .where(eq(songsTable.userId, user.userId));
 
+  const nominations = nominatedResult?.count ?? 0;
+  const uploads = uploadResult?.count ?? 0;
+
+  // Compute reputation and badges from live data
+  const reputation = nominations * 5 + uploads * 10;
+  const badges: string[] = [];
+  if (uploads >= 1) badges.push("Lyricist");
+  if (nominations >= 1) badges.push("Nominator");
+  if (reputation >= 50) badges.push("Music Guru");
+
+  // Sync stored values if they differ
+  const reputationChanged = user.reputation !== reputation;
+  const badgesChanged = JSON.stringify([...user.badges].sort()) !== JSON.stringify([...badges].sort());
+  if (reputationChanged || badgesChanged) {
+    await db
+      .update(usersTable)
+      .set({ reputation, badges })
+      .where(eq(usersTable.userId, user.userId));
+  }
+
   return {
     userId: user.userId,
     displayName: user.displayName,
-    reputation: user.reputation,
-    badgeCount: user.badges.length,
-    badges: user.badges,
-    nominatedCount: nominatedCount?.count ?? 0,
-    uploadCount: uploadCount?.count ?? 0,
+    reputation,
+    badgeCount: badges.length,
+    badges,
+    nominatedCount: nominations,
+    uploadCount: uploads,
     createdAt: user.createdAt.toISOString(),
   };
 }
 
-// List all users (for sharing)
+// List all users (minimal data for sharing UI)
 router.get("/users", async (_req, res): Promise<void> => {
   const users = await db
     .select({ userId: usersTable.userId, displayName: usersTable.displayName })
     .from(usersTable)
     .orderBy(desc(usersTable.createdAt))
-    .limit(50);
+    .limit(100);
   res.json(users);
 });
 
@@ -96,6 +127,12 @@ router.get("/users/:userId/inbox", async (req, res): Promise<void> => {
   const params = GetUserInboxParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  // Only the inbox owner can read it
+  if (req.userId && req.userId !== params.data.userId) {
+    res.status(403).json({ error: "Not authorized" });
     return;
   }
 
@@ -173,6 +210,13 @@ router.delete("/users/:userId", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Missing userId" });
     return;
   }
+
+  // Ownership check — only the user themselves can delete their account
+  if (req.userId && req.userId !== userId) {
+    res.status(403).json({ error: "Not authorized to delete this account" });
+    return;
+  }
+
   await db.delete(usersTable).where(eq(usersTable.userId, userId));
   res.sendStatus(204);
 });
@@ -185,6 +229,15 @@ router.post("/users/share", async (req, res): Promise<void> => {
   }
 
   const { fromUserId, toUserId, songId, message } = parsed.data;
+
+  // Rate limit: 30s cooldown per sender
+  const lastShare = inboxCooldownMap.get(fromUserId);
+  if (lastShare && Date.now() - lastShare < INBOX_COOLDOWN_MS) {
+    const remaining = Math.ceil((INBOX_COOLDOWN_MS - (Date.now() - lastShare)) / 1000);
+    res.status(429).json({ error: `Please wait ${remaining}s before sharing again` });
+    return;
+  }
+  inboxCooldownMap.set(fromUserId, Date.now());
 
   const [item] = await db.insert(inboxTable).values({
     fromUserId,

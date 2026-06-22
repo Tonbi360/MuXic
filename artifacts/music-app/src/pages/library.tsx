@@ -4,7 +4,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { usePlayer } from "@/hooks/use-player";
 import { getUserId } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { Music2, Play, Trash2, ArrowUp, Clock, Search, Share2, X, Send } from "lucide-react";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { Music2, Play, Trash2, ArrowUp, Clock, Search, Share2, X, Send, ListPlus } from "lucide-react";
 import type { Song } from "@workspace/api-client-react";
 
 const STORAGE_LABELS: Record<string, string> = {
@@ -60,8 +63,9 @@ function ShareModal({
           toast({ title: "Sent!", description: `"${song.title}" shared to their inbox` });
           onClose();
         },
-        onError: () => {
-          toast({ title: "Failed to share", variant: "destructive" });
+        onError: (err: unknown) => {
+          const msg = (err as { data?: { error?: string } })?.data?.error ?? "Failed to share";
+          toast({ title: msg, variant: "destructive" });
         },
       }
     );
@@ -140,17 +144,17 @@ function ShareModal({
 }
 
 export default function LibraryPage() {
-  const [storageFilter, setStorageFilter] = useState("");
+  const [storageFilter, setStorageFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("date_desc");
   const [sharingSong, setSharingSong] = useState<Song | null>(null);
   const userId = getUserId();
-  const { playSong } = usePlayer();
+  const { playSong, playAll } = usePlayer();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: songs, isLoading } = useListSongs(
-    { search: search || undefined, storageType: storageFilter || undefined },
+    { search: search || undefined, storageType: storageFilter === "all" ? undefined : storageFilter },
   );
 
   const deleteMutation = useDeleteSong();
@@ -163,7 +167,6 @@ export default function LibraryPage() {
     if (sort === "date_asc") return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     if (sort === "title") return a.title.localeCompare(b.title);
     if (sort === "artist") return a.artist.localeCompare(b.artist);
-    if (sort === "votes") return (b.voteCount ?? 0) - (a.voteCount ?? 0);
     return 0;
   });
 
@@ -172,6 +175,10 @@ export default function LibraryPage() {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListSongsQueryKey() });
         toast({ title: "Deleted", description: `"${song.title}" removed` });
+      },
+      onError: (err: unknown) => {
+        const msg = (err as { data?: { error?: string } })?.data?.error ?? "Failed to delete";
+        toast({ title: msg, variant: "destructive" });
       },
     });
   }
@@ -191,9 +198,19 @@ export default function LibraryPage() {
         <ShareModal song={sharingSong} fromUserId={userId} onClose={() => setSharingSong(null)} />
       )}
 
-      <div>
-        <h1 className="text-4xl font-bold font-serif mb-1">Library</h1>
-        <p className="text-muted-foreground">Your saved songs</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-4xl font-bold font-serif mb-1">Library</h1>
+          <p className="text-muted-foreground">Your saved songs</p>
+        </div>
+        {sortedSongs.length > 0 && (
+          <button
+            onClick={() => playAll(sortedSongs)}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity shrink-0"
+          >
+            <ListPlus className="w-4 h-4" /> Play All
+          </button>
+        )}
       </div>
 
       {/* Filters */}
@@ -209,30 +226,29 @@ export default function LibraryPage() {
             className="w-full pl-10 pr-4 py-2.5 bg-card border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
           />
         </div>
-        <select
-          data-testid="select-storage-filter"
-          value={storageFilter}
-          onChange={(e) => setStorageFilter(e.target.value)}
-          className="bg-card border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-        >
-          <option value="">All types</option>
-          <option value="limited">Limited</option>
-          <option value="permanent">Permanent</option>
-          <option value="public_limited">Public Limited</option>
-          <option value="public_download">Public Download</option>
-        </select>
-        <select
-          data-testid="select-sort"
-          value={sort}
-          onChange={(e) => setSort(e.target.value)}
-          className="bg-card border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-        >
-          <option value="date_desc">Newest first</option>
-          <option value="date_asc">Oldest first</option>
-          <option value="title">Title A-Z</option>
-          <option value="artist">Artist A-Z</option>
-          <option value="votes">Most voted</option>
-        </select>
+        <Select value={storageFilter} onValueChange={setStorageFilter}>
+          <SelectTrigger data-testid="select-storage-filter" className="w-[160px] bg-card border-border h-[42px] text-sm">
+            <SelectValue placeholder="All types" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All types</SelectItem>
+            <SelectItem value="limited">Limited</SelectItem>
+            <SelectItem value="permanent">Permanent</SelectItem>
+            <SelectItem value="public_limited">Public Limited</SelectItem>
+            <SelectItem value="public_download">Public Download</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={sort} onValueChange={setSort}>
+          <SelectTrigger data-testid="select-sort" className="w-[160px] bg-card border-border h-[42px] text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="date_desc">Newest first</SelectItem>
+            <SelectItem value="date_asc">Oldest first</SelectItem>
+            <SelectItem value="title">Title A–Z</SelectItem>
+            <SelectItem value="artist">Artist A–Z</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Songs */}
@@ -254,7 +270,7 @@ export default function LibraryPage() {
             <div
               key={song.id}
               data-testid={`song-card-${song.id}`}
-              className="bg-card border border-border rounded-xl p-4 flex items-center gap-4 hover:border-primary/30 transition-colors"
+              className="bg-card border border-border rounded-xl p-4 flex items-center gap-3 hover:border-primary/30 transition-colors"
             >
               {song.coverUrl ? (
                 <img src={song.coverUrl} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />
@@ -263,18 +279,17 @@ export default function LibraryPage() {
                   <Music2 className="w-5 h-5 text-muted-foreground" />
                 </div>
               )}
-              <div className="flex-1 min-w-0">
+              <div className="min-w-0 flex-1 overflow-hidden">
                 <p className="font-semibold truncate">{song.title}</p>
                 <p className="text-sm text-muted-foreground truncate">{song.artist}</p>
-                <div className="flex items-center gap-3 mt-1 flex-wrap">
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STORAGE_COLORS[song.storageType] ?? "text-muted-foreground bg-muted"}`}>
                     {STORAGE_LABELS[song.storageType] ?? song.storageType}
                   </span>
                   <CountdownTimer expiresAt={song.expiresAt ?? null} />
-                  <span className="text-xs text-muted-foreground">{song.voteCount} votes</span>
                 </div>
               </div>
-              <div className="flex gap-2 shrink-0">
+              <div className="flex gap-1.5 shrink-0">
                 <button
                   data-testid={`button-play-song-${song.id}`}
                   onClick={() => playSong(song)}

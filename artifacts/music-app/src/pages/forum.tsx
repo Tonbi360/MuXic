@@ -9,7 +9,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { getUserId } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { MessageSquare, Send, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, CornerDownRight } from "lucide-react";
+import { MessageSquare, Send, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, CornerDownRight, Trash2 } from "lucide-react";
 import type { ForumMessage } from "@workspace/api-client-react";
 
 const MOOD_TAGS = ["#Sad", "#Gym", "#Study", "#Chilled", "#Dance", "#Hype", "#Late Night"];
@@ -27,6 +27,7 @@ function formatTime(iso: string) {
 
 function ReplyThread({ postId, currentUserId }: { postId: number; currentUserId: string }) {
   const [replyContent, setReplyContent] = useState("");
+  const [deletingReplyId, setDeletingReplyId] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: replies, isLoading } = useGetForumReplies(postId);
@@ -51,6 +52,20 @@ function ReplyThread({ postId, currentUserId }: { postId: number; currentUserId:
     );
   }
 
+  async function handleDeleteReply(replyId: number) {
+    try {
+      await fetch(`/api/forum/${replyId}`, {
+        method: "DELETE",
+        headers: { "x-user-id": currentUserId },
+      });
+      queryClient.invalidateQueries({ queryKey: getGetForumRepliesQueryKey(postId) });
+      setDeletingReplyId(null);
+      toast({ title: "Reply deleted" });
+    } catch {
+      toast({ title: "Failed to delete reply", variant: "destructive" });
+    }
+  }
+
   return (
     <div className="mt-3 pl-4 border-l-2 border-border space-y-2">
       {isLoading ? (
@@ -63,7 +78,35 @@ function ReplyThread({ postId, currentUserId }: { postId: number; currentUserId:
               {reply.userName ?? reply.userId.slice(0, 8) + "..."}
               {reply.userId === currentUserId && <span className="ml-1 text-primary">(you)</span>}
             </span>
-            <span className="text-xs text-muted-foreground">{formatTime(reply.createdAt)}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">{formatTime(reply.createdAt)}</span>
+              {reply.userId === currentUserId && (
+                deletingReplyId === reply.id ? (
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleDeleteReply(reply.id)}
+                      className="text-[10px] px-2 py-0.5 bg-destructive text-destructive-foreground rounded font-medium"
+                    >
+                      Delete
+                    </button>
+                    <button
+                      onClick={() => setDeletingReplyId(null)}
+                      className="text-[10px] px-2 py-0.5 bg-muted text-muted-foreground rounded font-medium"
+                    >
+                      No
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setDeletingReplyId(reply.id)}
+                    className="p-0.5 text-muted-foreground hover:text-destructive transition-colors"
+                    title="Delete reply"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                )
+              )}
+            </div>
           </div>
           <p className="text-sm leading-relaxed">{reply.content}</p>
         </div>
@@ -96,6 +139,7 @@ export default function ForumPage() {
   const [selectedMood, setSelectedMood] = useState("");
   const [cooldownLeft, setCooldownLeft] = useState(0);
   const [expandedPost, setExpandedPost] = useState<number | null>(null);
+  const [deletingPostId, setDeletingPostId] = useState<number | null>(null);
   const userId = getUserId();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -152,8 +196,24 @@ export default function ForumPage() {
     );
   }
 
+  async function handleDeletePost(postId: number) {
+    try {
+      await fetch(`/api/forum/${postId}`, {
+        method: "DELETE",
+        headers: { "x-user-id": userId },
+      });
+      queryClient.invalidateQueries({ queryKey: getListForumMessagesQueryKey() });
+      setDeletingPostId(null);
+      if (expandedPost === postId) setExpandedPost(null);
+      toast({ title: "Post deleted" });
+    } catch {
+      toast({ title: "Failed to delete post", variant: "destructive" });
+    }
+  }
+
   function toggleReplies(postId: number) {
     setExpandedPost(expandedPost === postId ? null : postId);
+    setDeletingPostId(null);
   }
 
   return (
@@ -239,7 +299,7 @@ export default function ForumPage() {
               data-testid={`forum-message-${msg.id}`}
               className={`bg-card border rounded-xl p-4 ${msg.userId === userId ? "border-primary/30" : "border-border"}`}
             >
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-start justify-between gap-2 mb-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs font-semibold text-muted-foreground">
                     {msg.userName ?? msg.userId.slice(0, 8) + "..."}
@@ -251,7 +311,37 @@ export default function ForumPage() {
                     </span>
                   )}
                 </div>
-                <span className="text-xs text-muted-foreground shrink-0">{formatTime(msg.createdAt)}</span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-xs text-muted-foreground">{formatTime(msg.createdAt)}</span>
+                  {msg.userId === userId && (
+                    deletingPostId === msg.id ? (
+                      <div className="flex items-center gap-1">
+                        <button
+                          data-testid={`button-confirm-delete-post-${msg.id}`}
+                          onClick={() => handleDeletePost(msg.id)}
+                          className="text-[10px] px-2 py-0.5 bg-destructive text-destructive-foreground rounded font-medium"
+                        >
+                          Delete
+                        </button>
+                        <button
+                          onClick={() => setDeletingPostId(null)}
+                          className="text-[10px] px-2 py-0.5 bg-muted text-muted-foreground rounded font-medium"
+                        >
+                          No
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        data-testid={`button-delete-post-${msg.id}`}
+                        onClick={() => setDeletingPostId(msg.id)}
+                        className="p-1 text-muted-foreground hover:text-destructive transition-colors"
+                        title="Delete post"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )
+                  )}
+                </div>
               </div>
               <p className="text-sm leading-relaxed">{msg.content}</p>
 

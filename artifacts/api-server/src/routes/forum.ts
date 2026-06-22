@@ -13,6 +13,13 @@ const FORUM_PAGE_SIZE = 20;
 const MESSAGE_COOLDOWN_MS = 30 * 1000;
 const userLastMessage: Map<string, number> = new Map();
 
+// PG-13 word filter — best-effort, won't catch all creative evasions
+const BLOCKED_WORDS = ["fuck", "shit", "cunt", "nigger", "nigga", "faggot", "fag"];
+function containsBlockedContent(text: string): boolean {
+  const lower = text.toLowerCase();
+  return BLOCKED_WORDS.some((w) => lower.includes(w));
+}
+
 async function buildMessage(entry: typeof forumTable.$inferSelect, replyCount = 0) {
   const [user] = await db.select().from(usersTable).where(eq(usersTable.userId, entry.userId));
   return {
@@ -56,12 +63,7 @@ router.get("/forum", async (req, res): Promise<void> => {
     })
   );
 
-  res.json({
-    messages,
-    total,
-    page,
-    totalPages: Math.ceil(total / limit),
-  });
+  res.json({ messages, total, page, totalPages: Math.ceil(total / limit) });
 });
 
 router.get("/forum/:id/replies", async (req, res): Promise<void> => {
@@ -90,7 +92,13 @@ router.post("/forum", async (req, res): Promise<void> => {
 
   const { userId, content, moodTag, parentId } = parsed.data;
 
-  // Anti-spam cooldown (only for top-level posts)
+  // Word filter
+  if (containsBlockedContent(content)) {
+    res.status(400).json({ error: "Post contains prohibited language" });
+    return;
+  }
+
+  // Anti-spam cooldown (top-level posts only)
   if (!parentId) {
     const lastPost = userLastMessage.get(userId);
     if (lastPost && Date.now() - lastPost < MESSAGE_COOLDOWN_MS) {
@@ -109,6 +117,36 @@ router.post("/forum", async (req, res): Promise<void> => {
   }).returning();
 
   res.status(201).json(await buildMessage(entry));
+});
+
+router.delete("/forum/:id", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+
+  const requestingUserId = req.userId;
+  if (!requestingUserId) {
+    res.status(401).json({ error: "Missing X-User-Id header" });
+    return;
+  }
+
+  const [post] = await db.select().from(forumTable).where(eq(forumTable.id, id));
+  if (!post) {
+    res.status(404).json({ error: "Post not found" });
+    return;
+  }
+  if (post.userId !== requestingUserId) {
+    res.status(403).json({ error: "Not authorized to delete this post" });
+    return;
+  }
+
+  // Delete replies first, then the post
+  await db.delete(forumTable).where(eq(forumTable.parentId, id));
+  await db.delete(forumTable).where(eq(forumTable.id, id));
+
+  res.sendStatus(204);
 });
 
 export default router;

@@ -9,10 +9,13 @@ interface PlayerContextType {
   progress: number;
   duration: number;
   playSong: (song: Song) => void;
+  playAll: (songs: Song[], startIndex?: number) => void;
   togglePlay: () => void;
   seek: (value: number) => void;
   queue: Song[];
+  history: Song[];
   addToQueue: (song: Song) => void;
+  clearQueue: () => void;
   next: () => void;
   prev: () => void;
   volume: number;
@@ -43,6 +46,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [queue, setQueue] = useState<Song[]>([]);
+  const [history, setHistory] = useState<Song[]>([]);
   const [volume, setVolumeState] = useState(1);
   const [shuffle, setShuffle] = useState(false);
   const [repeat, setRepeat] = useState<RepeatMode>("off");
@@ -52,18 +56,18 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const ytPlayerRef = useRef<any>(null);
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Keep a ref to always-fresh state for use inside event listeners
   const liveRef = useRef({
     currentSong: null as Song | null,
     queue: [] as Song[],
+    history: [] as Song[],
     volume: 1,
     shuffle: false,
     repeat: "off" as RepeatMode,
     isPlaying: false,
+    progress: 0,
   });
-  liveRef.current = { currentSong, queue, volume, shuffle, repeat, isPlaying };
+  liveRef.current = { currentSong, queue, history, volume, shuffle, repeat, isPlaying, progress };
 
-  // A stable ref to onSongEnded so event listeners always call the latest version
   const onSongEndedRef = useRef<() => void>(() => {});
 
   function stopProgress() {
@@ -111,27 +115,38 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }
 
   function onSongEnded() {
-    const { repeat, queue, currentSong, shuffle } = liveRef.current;
+    const { repeat, queue, currentSong, shuffle, history } = liveRef.current;
+
     if (repeat === "one" && currentSong) {
       playInternal(currentSong);
       return;
     }
+
     if (queue.length > 0) {
       const idx = shuffle ? Math.floor(Math.random() * queue.length) : 0;
-      const next = queue[idx];
+      const nextSong = queue[idx];
+      // Push current to history before advancing
+      if (currentSong) {
+        setHistory((h) => [...h.slice(-49), currentSong]);
+      }
       setQueue((q) => q.filter((_, i) => i !== idx));
-      playInternal(next);
+      playInternal(nextSong);
       return;
     }
+
     if (repeat === "all" && currentSong) {
-      playInternal(currentSong);
+      // Replay the whole history + current
+      const fullList = [...history, currentSong];
+      setHistory([]);
+      setQueue(fullList.slice(1));
+      playInternal(fullList[0]);
       return;
     }
+
     setIsPlaying(false);
     stopProgress();
   }
 
-  // Keep the ref pointing to the latest version
   onSongEndedRef.current = onSongEnded;
 
   // Load YouTube IFrame API once
@@ -171,6 +186,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (audioRef.current) return;
     const audio = new Audio();
+    audio.preload = "auto";
     audio.addEventListener("timeupdate", () => setProgress(audio.currentTime || 0));
     audio.addEventListener("loadedmetadata", () => setDuration(audio.duration || 0));
     audio.addEventListener("ended", () => onSongEndedRef.current());
@@ -183,7 +199,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (ytPlayerRef.current?.setVolume) ytPlayerRef.current.setVolume(volume * 100);
   }, [volume]);
 
-  // Media Session API — registers with the OS so lock screen / notification controls work
+  // Media Session API
   useEffect(() => {
     if (!("mediaSession" in navigator)) return;
     navigator.mediaSession.setActionHandler("play", () => {
@@ -202,11 +218,20 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     });
     navigator.mediaSession.setActionHandler("nexttrack", () => onSongEndedRef.current());
     navigator.mediaSession.setActionHandler("previoustrack", () => {
-      const song = liveRef.current.currentSong;
-      const ytId = song?.source === "youtube" ? extractYouTubeId(song.sourceUrl) : null;
-      if (ytId && ytPlayerRef.current) ytPlayerRef.current.seekTo(0, true);
-      else if (audioRef.current) audioRef.current.currentTime = 0;
-      setProgress(0);
+      const { history, currentSong } = liveRef.current;
+      if (history.length > 0) {
+        const prev = history[history.length - 1];
+        setHistory((h) => h.slice(0, -1));
+        if (currentSong) setQueue((q) => [currentSong, ...q]);
+        playInternal(prev);
+      } else {
+        // Restart current song
+        const song = liveRef.current.currentSong;
+        const ytId = song?.source === "youtube" ? extractYouTubeId(song.sourceUrl) : null;
+        if (ytId && ytPlayerRef.current) ytPlayerRef.current.seekTo(0, true);
+        else if (audioRef.current) audioRef.current.currentTime = 0;
+        setProgress(0);
+      }
     });
     return () => {
       (["play", "pause", "nexttrack", "previoustrack"] as MediaSessionAction[]).forEach((a) => {
@@ -215,7 +240,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Update OS media notification metadata when song changes
+  // Update OS media notification metadata
   useEffect(() => {
     if (!("mediaSession" in navigator)) return;
     if (!currentSong) { navigator.mediaSession.metadata = null; return; }
@@ -228,7 +253,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     });
   }, [currentSong]);
 
-  // Keep OS playback state in sync
   useEffect(() => {
     if (!("mediaSession" in navigator)) return;
     navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
@@ -236,7 +260,21 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const setVolume = (v: number) => setVolumeState(v);
 
-  const playSong = (song: Song) => playInternal(song);
+  const playSong = (song: Song) => {
+    const { currentSong } = liveRef.current;
+    if (currentSong) setHistory((h) => [...h.slice(-49), currentSong]);
+    setQueue([]);
+    playInternal(song);
+  };
+
+  const playAll = (songs: Song[], startIndex = 0) => {
+    if (songs.length === 0) return;
+    const toPlay = songs.slice(startIndex);
+    const rest = songs.slice(startIndex + 1);
+    setHistory([]);
+    setQueue(rest);
+    playInternal(toPlay[0]);
+  };
 
   const togglePlay = () => {
     const { currentSong, isPlaying } = liveRef.current;
@@ -261,12 +299,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   };
 
   const addToQueue = (song: Song) => setQueue((q) => [...q, song]);
+  const clearQueue = () => setQueue([]);
 
   const next = () => {
-    const { queue, shuffle } = liveRef.current;
+    const { queue, shuffle, currentSong } = liveRef.current;
     if (queue.length > 0) {
       const idx = shuffle ? Math.floor(Math.random() * queue.length) : 0;
       const song = queue[idx];
+      if (currentSong) setHistory((h) => [...h.slice(-49), currentSong]);
       setQueue((q) => q.filter((_, i) => i !== idx));
       playInternal(song);
     } else {
@@ -275,14 +315,29 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   };
 
   const prev = () => {
-    seek(0);
+    const { history, currentSong, progress } = liveRef.current;
+    // If more than 3s in, restart current song
+    if (progress > 3) {
+      seek(0);
+      return;
+    }
+    // Go to previous in history
+    if (history.length > 0) {
+      const prevSong = history[history.length - 1];
+      setHistory((h) => h.slice(0, -1));
+      if (currentSong) setQueue((q) => [currentSong, ...q]);
+      playInternal(prevSong);
+    } else {
+      seek(0);
+    }
   };
 
   return (
     <PlayerContext.Provider
       value={{
         currentSong, isPlaying, progress, duration,
-        playSong, togglePlay, seek, queue, addToQueue,
+        playSong, playAll, togglePlay, seek,
+        queue, history, addToQueue, clearQueue,
         next, prev, volume, setVolume,
         shuffle, setShuffle, repeat, setRepeat,
       }}

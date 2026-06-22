@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
 import { useGetUser, useRegisterUser, useGetUserInbox, useGetUserActivity, getGetUserQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useLocation } from "wouter";
-import { getUserId, clearUserId } from "@/lib/auth";
+import { getUserId } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { usePlayer } from "@/hooks/use-player";
-import { UserCircle, Star, Music2, Award, Inbox, Play, Edit2, Check, MessageSquare, Radio, Trophy, Trash2, AlertTriangle } from "lucide-react";
+import { UserCircle, Star, Music2, Award, Inbox, Play, Edit2, Check, MessageSquare, Radio, Trophy } from "lucide-react";
 
 const BADGE_COLORS: Record<string, string> = {
   Lyricist: "bg-purple-500/20 text-purple-400",
@@ -39,13 +38,10 @@ export default function ProfilePage() {
   const [tab, setTab] = useState<"activity" | "inbox">("activity");
   const [editing, setEditing] = useState(false);
   const [displayName, setDisplayName] = useState("");
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const userId = getUserId();
   const { playSong } = usePlayer();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [, setLocation] = useLocation();
 
   const { data: profile, isLoading, isError } = useGetUser(userId);
   const { data: inbox } = useGetUserInbox(userId, {
@@ -88,21 +84,6 @@ export default function ProfilePage() {
     );
   }
 
-  async function handleDeleteAccount() {
-    setDeleting(true);
-    try {
-      await fetch(`/api/users/${userId}`, { method: "DELETE" });
-      clearUserId();
-      queryClient.clear();
-      toast({ title: "Account deleted", description: "Your identity has been cleared." });
-      setLocation("/");
-      window.location.reload();
-    } catch {
-      toast({ title: "Failed to delete account", variant: "destructive" });
-      setDeleting(false);
-    }
-  }
-
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-6">
       <div>
@@ -127,6 +108,7 @@ export default function ProfilePage() {
                     autoFocus
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSaveName()}
                     className="flex-1 bg-muted border border-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                   <button
@@ -149,7 +131,7 @@ export default function ProfilePage() {
                   </button>
                 </div>
               )}
-              <p className="text-xs text-muted-foreground mt-0.5">ID: {userId.slice(0, 12)}...</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Member since {new Date(profile.createdAt).toLocaleDateString()}</p>
             </div>
           </div>
 
@@ -170,7 +152,7 @@ export default function ProfilePage() {
           </div>
 
           {/* Badges */}
-          {(profile.badges ?? []).length > 0 && (
+          {(profile.badges ?? []).length > 0 ? (
             <div>
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Badges</p>
               <div className="flex flex-wrap gap-2">
@@ -185,9 +167,7 @@ export default function ProfilePage() {
                 ))}
               </div>
             </div>
-          )}
-
-          {(profile.badges ?? []).length === 0 && (
+          ) : (
             <div className="border border-dashed border-border rounded-lg p-4 text-center text-sm text-muted-foreground">
               <Star className="w-6 h-6 mx-auto mb-1 opacity-40" />
               Earn badges by nominating songs and contributing to the community
@@ -310,47 +290,6 @@ export default function ProfilePage() {
           )}
         </div>
       )}
-
-      {/* Danger Zone */}
-      <div className="border border-destructive/30 rounded-xl p-4 space-y-3">
-        <div className="flex items-center gap-2 text-destructive">
-          <AlertTriangle className="w-4 h-4 shrink-0" />
-          <p className="text-sm font-semibold">Danger Zone</p>
-        </div>
-        {!confirmDelete ? (
-          <div className="flex items-center justify-between gap-4">
-            <p className="text-xs text-muted-foreground">Permanently delete your account and reset your identity. Your songs and nominations will remain but become unlinked.</p>
-            <button
-              data-testid="button-delete-account"
-              onClick={() => setConfirmDelete(true)}
-              className="flex items-center gap-2 px-3 py-2 bg-destructive/10 text-destructive border border-destructive/30 rounded-lg text-sm font-medium hover:bg-destructive/20 transition-colors shrink-0"
-            >
-              <Trash2 className="w-4 h-4" /> Delete Account
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <p className="text-sm text-destructive font-medium">Are you sure? This cannot be undone.</p>
-            <div className="flex gap-2">
-              <button
-                data-testid="button-confirm-delete-account"
-                onClick={handleDeleteAccount}
-                disabled={deleting}
-                className="flex items-center gap-2 px-4 py-2 bg-destructive text-destructive-foreground rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
-              >
-                <Trash2 className="w-4 h-4" />
-                {deleting ? "Deleting…" : "Yes, delete my account"}
-              </button>
-              <button
-                onClick={() => setConfirmDelete(false)}
-                className="px-4 py-2 bg-muted text-muted-foreground rounded-lg text-sm font-medium hover:text-foreground transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 }

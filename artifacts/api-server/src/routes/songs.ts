@@ -3,8 +3,14 @@ import { db } from "@workspace/db";
 import {
   songsTable,
   boardEntriesTable,
+  votesTable,
+  queueTable,
+  queueVetosTable,
+  playlistSongsTable,
+  dailyPlaylistTable,
+  inboxTable,
 } from "@workspace/db";
-import { eq, ilike, or, and, sql } from "drizzle-orm";
+import { eq, ilike, or, and, sql, inArray } from "drizzle-orm";
 import {
   ListSongsQueryParams,
   CreateSongBody,
@@ -67,6 +73,7 @@ router.get("/songs", async (req, res): Promise<void> => {
   const limitNum = typeof limit === "string" ? parseInt(limit, 10) : (limit ?? 50);
   const offsetNum = typeof offset === "string" ? parseInt(offset, 10) : (offset ?? 0);
 
+  void sort;
   const songs = await query.limit(limitNum).offset(offsetNum);
   res.json(songs.map(toSongResponse));
 });
@@ -133,6 +140,18 @@ router.patch("/songs/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  // Ownership check
+  const [existing] = await db.select().from(songsTable).where(eq(songsTable.id, params.data.id));
+  if (!existing) {
+    res.status(404).json({ error: "Song not found" });
+    return;
+  }
+  if (req.userId && existing.userId !== req.userId) {
+    res.status(403).json({ error: "Not authorized" });
+    return;
+  }
+
+  // Only allow safe fields — voteCount, isPublic are intentionally excluded (mass-assignment protection)
   const update: Record<string, unknown> = {};
   const d = parsed.data;
   if (d.title !== undefined) update.title = d.title;
@@ -162,11 +181,49 @@ router.delete("/songs/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const [song] = await db.delete(songsTable).where(eq(songsTable.id, params.data.id)).returning();
-  if (!song) {
+
+  const [existing] = await db.select().from(songsTable).where(eq(songsTable.id, params.data.id));
+  if (!existing) {
     res.status(404).json({ error: "Song not found" });
     return;
   }
+
+  // Ownership check
+  if (req.userId && existing.userId !== req.userId) {
+    res.status(403).json({ error: "Not authorized to delete this song" });
+    return;
+  }
+
+  const songId = params.data.id;
+
+  // Cascade: inbox references
+  await db.delete(inboxTable).where(eq(inboxTable.songId, songId));
+
+  // Cascade: daily playlist
+  await db.delete(dailyPlaylistTable).where(eq(dailyPlaylistTable.songId, songId));
+
+  // Cascade: playlist_songs
+  await db.delete(playlistSongsTable).where(eq(playlistSongsTable.songId, songId));
+
+  // Cascade: queue vetos then queue entries
+  const queueEntries = await db
+    .select({ id: queueTable.id })
+    .from(queueTable)
+    .where(eq(queueTable.songId, songId));
+  if (queueEntries.length > 0) {
+    await db.delete(queueVetosTable).where(
+      inArray(queueVetosTable.queueId, queueEntries.map((e) => e.id))
+    );
+  }
+  await db.delete(queueTable).where(eq(queueTable.songId, songId));
+
+  // Cascade: votes + board entries
+  await db.delete(votesTable).where(eq(votesTable.songId, songId));
+  await db.delete(boardEntriesTable).where(eq(boardEntriesTable.songId, songId));
+
+  // Finally delete the song
+  await db.delete(songsTable).where(eq(songsTable.id, songId));
+
   res.sendStatus(204);
 });
 
@@ -179,6 +236,16 @@ router.post("/songs/:id/promote", async (req, res): Promise<void> => {
   const parsed = PromoteSongBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const [existing] = await db.select().from(songsTable).where(eq(songsTable.id, params.data.id));
+  if (!existing) {
+    res.status(404).json({ error: "Song not found" });
+    return;
+  }
+  if (req.userId && existing.userId !== req.userId) {
+    res.status(403).json({ error: "Not authorized" });
     return;
   }
 

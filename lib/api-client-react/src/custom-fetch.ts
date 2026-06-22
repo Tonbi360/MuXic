@@ -17,6 +17,16 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 
 let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
+let _userIdGetter: (() => string | null) | null = null;
+
+/**
+ * Register a getter that supplies the current user's UUID.
+ * Before every fetch the getter is invoked; when it returns a non-null string,
+ * an `X-User-Id` header is attached so the server can perform ownership checks.
+ */
+export function setUserIdGetter(getter: (() => string | null) | null): void {
+  _userIdGetter = getter;
+}
 
 /**
  * Set a base URL that is prepended to every relative request URL
@@ -356,6 +366,12 @@ export async function customFetch<T = unknown>(
     if (token) {
       headers.set("authorization", `Bearer ${token}`);
     }
+  }
+
+  // Attach user identity header for server-side ownership checks
+  if (_userIdGetter && !headers.has("x-user-id")) {
+    const userId = _userIdGetter();
+    if (userId) headers.set("x-user-id", userId);
   }
 
   const requestInfo = { method, url: resolveUrl(input) };

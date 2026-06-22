@@ -13,17 +13,18 @@ import { useQueryClient } from "@tanstack/react-query";
 import { usePlayer } from "@/hooks/use-player";
 import { getUserId } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { ListMusic, Plus, Trash2, Play, ChevronRight, Music2, X, PlusCircle } from "lucide-react";
+import { ListMusic, Plus, Trash2, Play, ChevronRight, Music2, X, PlusCircle, ListPlus, AlertTriangle } from "lucide-react";
 
 export default function PlaylistsPage() {
   const userId = getUserId();
-  const { playSong } = usePlayer();
+  const { playSong, playAll } = usePlayer();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [showAddSong, setShowAddSong] = useState(false);
   const [newName, setNewName] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   const { data: playlists, isLoading } = useListPlaylists({ userId });
   const { data: selected, refetch: refetchSelected } = useGetPlaylist(selectedId!, {
@@ -59,6 +60,7 @@ export default function PlaylistsPage() {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListPlaylistsQueryKey({ userId }) });
         if (selectedId === id) setSelectedId(null);
+        setConfirmDeleteId(null);
         toast({ title: "Deleted", description: `"${name}" removed` });
       },
     });
@@ -149,30 +151,56 @@ export default function PlaylistsPage() {
             </div>
           ) : (
             playlists.map((pl) => (
-              <button
-                key={pl.id}
-                data-testid={`playlist-card-${pl.id}`}
-                onClick={() => { setSelectedId(selectedId === pl.id ? null : pl.id); setShowAddSong(false); }}
-                className={`w-full bg-card border rounded-xl p-4 flex items-center gap-3 text-left transition-colors hover:border-primary/40 ${selectedId === pl.id ? "border-primary" : "border-border"}`}
-              >
-                <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center shrink-0">
-                  <ListMusic className="w-5 h-5 text-muted-foreground" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold truncate">{pl.name}</p>
-                  <p className="text-xs text-muted-foreground">{pl.songCount} songs</p>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    data-testid={`button-delete-playlist-${pl.id}`}
-                    onClick={(e) => { e.stopPropagation(); handleDelete(pl.id, pl.name); }}
-                    className="p-1.5 text-muted-foreground hover:text-destructive transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                  <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${selectedId === pl.id ? "rotate-90" : ""}`} />
-                </div>
-              </button>
+              <div key={pl.id} className="space-y-1">
+                <button
+                  data-testid={`playlist-card-${pl.id}`}
+                  onClick={() => { setSelectedId(selectedId === pl.id ? null : pl.id); setShowAddSong(false); setConfirmDeleteId(null); }}
+                  className={`w-full bg-card border rounded-xl p-4 flex items-center gap-3 text-left transition-colors hover:border-primary/40 ${selectedId === pl.id ? "border-primary" : "border-border"}`}
+                >
+                  <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center shrink-0">
+                    <ListMusic className="w-5 h-5 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold truncate">{pl.name}</p>
+                    <p className="text-xs text-muted-foreground">{pl.songCount} songs</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {confirmDeleteId === pl.id ? null : (
+                      <button
+                        data-testid={`button-delete-playlist-${pl.id}`}
+                        onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(pl.id); }}
+                        className="p-1.5 text-muted-foreground hover:text-destructive transition-colors"
+                        title="Delete playlist"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                    <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${selectedId === pl.id ? "rotate-90" : ""}`} />
+                  </div>
+                </button>
+
+                {/* Inline delete confirmation */}
+                {confirmDeleteId === pl.id && (
+                  <div className="bg-destructive/10 border border-destructive/20 rounded-xl px-4 py-3 flex items-center gap-3">
+                    <AlertTriangle className="w-4 h-4 text-destructive shrink-0" />
+                    <p className="text-xs text-destructive flex-1 font-medium">Delete "{pl.name}"? This cannot be undone.</p>
+                    <button
+                      data-testid={`button-confirm-delete-playlist-${pl.id}`}
+                      onClick={() => handleDelete(pl.id, pl.name)}
+                      disabled={deleteMutation.isPending}
+                      className="px-3 py-1.5 bg-destructive text-destructive-foreground rounded-lg text-xs font-medium hover:opacity-90 disabled:opacity-50"
+                    >
+                      Delete
+                    </button>
+                    <button
+                      onClick={() => setConfirmDeleteId(null)}
+                      className="px-3 py-1.5 bg-muted text-muted-foreground rounded-lg text-xs font-medium hover:text-foreground"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
             ))
           )}
         </div>
@@ -180,15 +208,25 @@ export default function PlaylistsPage() {
         {/* Selected playlist songs */}
         {selectedId && (
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="font-bold text-lg font-serif">{selected?.name}</h2>
-              <button
-                data-testid="button-add-song-to-playlist"
-                onClick={() => setShowAddSong(!showAddSong)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-muted hover:bg-muted/80 rounded-lg text-sm font-medium transition-colors"
-              >
-                <PlusCircle className="w-4 h-4" /> Add song
-              </button>
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="font-bold text-lg font-serif truncate">{selected?.name}</h2>
+              <div className="flex items-center gap-2 shrink-0">
+                {(selected?.songs ?? []).length > 0 && (
+                  <button
+                    onClick={() => playAll(selected?.songs ?? [])}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    <ListPlus className="w-4 h-4" /> Play All
+                  </button>
+                )}
+                <button
+                  data-testid="button-add-song-to-playlist"
+                  onClick={() => setShowAddSong(!showAddSong)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-muted hover:bg-muted/80 rounded-lg text-sm font-medium transition-colors"
+                >
+                  <PlusCircle className="w-4 h-4" /> Add song
+                </button>
+              </div>
             </div>
 
             {/* Song picker */}

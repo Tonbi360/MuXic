@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { Switch, Route, Router as WouterRouter, Link, useLocation } from "wouter";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { PlayerProvider, usePlayer } from "@/hooks/use-player";
+import { setUserIdGetter } from "@workspace/api-client-react";
+import { getUserId, clearUserId } from "@/lib/auth";
+import { useToast } from "@/hooks/use-toast";
 import HomePage from "@/pages/home";
 import SearchPage from "@/pages/search";
 import LibraryPage from "@/pages/library";
@@ -19,8 +22,11 @@ import {
   Home, Search, ListMusic, Mic2,
   MessageSquare, UserCircle,
   PlayCircle, Pause, SkipForward, Trophy, Radio,
-  Menu, X,
+  Menu, X, AlertTriangle, Trash2,
 } from "lucide-react";
+
+// Wire up the user-id getter so every API call carries X-User-Id
+setUserIdGetter(() => getUserId());
 
 function MiniPlayer() {
   const { currentSong, isPlaying, togglePlay, next } = usePlayer();
@@ -80,7 +86,7 @@ const navItems = [
 const communityItems = [
   { href: "/songboard", icon: Trophy, label: "Song Board" },
   { href: "/queue", icon: ListMusic, label: "Shared Queue" },
-  { href: "/daily", icon: Radio, label: "Daily Mix" },
+  { href: "/daily", icon: Radio, label: "Daily Playlist" },
   { href: "/forum", icon: MessageSquare, label: "Forum" },
 ];
 
@@ -98,6 +104,95 @@ function NavLink({ href, icon: Icon, label }: { href: string; icon: React.Elemen
     >
       <Icon className="w-4 h-4 shrink-0" /> {label}
     </Link>
+  );
+}
+
+function DeleteAccountSection() {
+  const [confirm, setConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
+
+  async function handleDelete() {
+    const userId = getUserId();
+    setDeleting(true);
+    try {
+      await fetch(`/api/users/${userId}`, {
+        method: "DELETE",
+        headers: { "x-user-id": userId },
+      });
+      clearUserId();
+      queryClient.clear();
+      toast({ title: "Account deleted" });
+      setLocation("/");
+      window.location.reload();
+    } catch {
+      toast({ title: "Failed to delete account", variant: "destructive" });
+      setDeleting(false);
+    }
+  }
+
+  if (!confirm) {
+    return (
+      <button
+        data-testid="button-delete-account"
+        onClick={() => setConfirm(true)}
+        className="flex items-center gap-2 w-full px-3 py-2 text-xs text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+      >
+        <Trash2 className="w-3.5 h-3.5" /> Delete Account
+      </button>
+    );
+  }
+
+  return (
+    <div className="mx-3 p-3 bg-destructive/10 border border-destructive/20 rounded-lg space-y-2">
+      <p className="text-xs text-destructive font-medium">Permanently delete account?</p>
+      <div className="flex gap-1.5">
+        <button
+          data-testid="button-confirm-delete-account"
+          onClick={handleDelete}
+          disabled={deleting}
+          className="flex-1 py-1.5 bg-destructive text-destructive-foreground rounded-md text-xs font-medium disabled:opacity-50 hover:opacity-90"
+        >
+          {deleting ? "Deleting…" : "Yes, delete"}
+        </button>
+        <button
+          onClick={() => setConfirm(false)}
+          className="flex-1 py-1.5 bg-muted text-muted-foreground rounded-md text-xs font-medium hover:text-foreground"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function FirstVisitBanner() {
+  const [show, setShow] = useState(() => !localStorage.getItem("muxic_welcomed"));
+
+  if (!show) return null;
+
+  function dismiss() {
+    localStorage.setItem("muxic_welcomed", "1");
+    setShow(false);
+  }
+
+  return (
+    <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-2.5 flex items-start gap-3 shrink-0">
+      <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+      <p className="flex-1 text-xs text-amber-300">
+        <span className="font-semibold">Your identity lives in this browser only.</span>
+        {" "}Clearing site data will permanently erase your library and reputation — there is no recovery.
+      </p>
+      <button
+        onClick={dismiss}
+        className="p-0.5 text-amber-400 hover:text-amber-200 shrink-0"
+        aria-label="Dismiss"
+      >
+        <X className="w-3.5 h-3.5" />
+      </button>
+    </div>
   );
 }
 
@@ -121,6 +216,12 @@ function Sidebar() {
         <div className="pt-4 pb-1 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">You</div>
         <NavLink href="/profile" icon={UserCircle} label="Profile" />
       </nav>
+      <div className="border-t border-border py-3 shrink-0">
+        <div className="px-3 pb-1 text-xs text-muted-foreground/60 font-semibold uppercase tracking-wider">
+          Danger
+        </div>
+        <DeleteAccountSection />
+      </div>
     </div>
   );
 }
@@ -153,6 +254,12 @@ function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void })
           <div className="pt-4 pb-1 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">You</div>
           <NavLink href="/profile" icon={UserCircle} label="Profile" />
         </nav>
+        <div className="border-t border-border py-3 shrink-0" onClick={(e) => e.stopPropagation()}>
+          <div className="px-6 pb-1 text-xs text-muted-foreground/60 font-semibold uppercase tracking-wider">
+            Danger
+          </div>
+          <DeleteAccountSection />
+        </div>
       </div>
     </>
   );
@@ -203,6 +310,7 @@ function Layout({ children }: { children: React.ReactNode }) {
           <span className="font-serif font-bold text-primary tracking-tight">MuXic</span>
           <div className="w-7" />
         </div>
+        <FirstVisitBanner />
         <main className="flex-1 overflow-y-auto pb-32 md:pb-20">
           {children}
         </main>

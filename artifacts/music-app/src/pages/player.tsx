@@ -4,7 +4,7 @@ import type { RepeatMode } from "@/hooks/use-player";
 import { useLocation } from "wouter";
 import {
   Play, Pause, SkipForward, SkipBack, Volume2, Music2,
-  Shuffle, Repeat, Moon, ChevronDown
+  Shuffle, Repeat, Moon, ChevronDown, ListMusic,
 } from "lucide-react";
 
 function formatTime(secs: number) {
@@ -15,12 +15,17 @@ function formatTime(secs: number) {
 }
 
 export default function PlayerPage() {
-  const { currentSong, isPlaying, togglePlay, next, prev, progress, duration, seek, volume, setVolume, shuffle, setShuffle, repeat, setRepeat } = usePlayer();
+  const {
+    currentSong, isPlaying, togglePlay, next, prev,
+    progress, duration, seek, volume, setVolume,
+    shuffle, setShuffle, repeat, setRepeat,
+    queue,
+  } = usePlayer();
   const [, setLocation] = useLocation();
   const [sleepMinutes, setSleepMinutes] = useState<number | null>(null);
   const [sleepLeft, setSleepLeft] = useState<number | null>(null);
+  const [showUpNext, setShowUpNext] = useState(false);
 
-  // Keep a ref so the sleep timer interval always sees the latest isPlaying value
   const isPlayingRef = useRef(isPlaying);
   useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
   const togglePlayRef = useRef(togglePlay);
@@ -45,6 +50,14 @@ export default function PlayerPage() {
     return () => clearInterval(interval);
   }, [sleepMinutes]);
 
+  function goBack() {
+    if (window.history.length > 1) {
+      window.history.back();
+    } else {
+      setLocation("/");
+    }
+  }
+
   if (!currentSong) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-8">
@@ -64,13 +77,24 @@ export default function PlayerPage() {
   return (
     <div className="flex flex-col items-center justify-start min-h-full bg-background p-6 md:p-10 gap-8">
       {/* Back */}
-      <button
-        data-testid="button-back-player"
-        onClick={() => setLocation(-1 as unknown as string)}
-        className="self-start flex items-center gap-1 text-muted-foreground hover:text-foreground text-sm"
-      >
-        <ChevronDown className="w-4 h-4" /> Now Playing
-      </button>
+      <div className="self-start w-full flex items-center justify-between">
+        <button
+          data-testid="button-back-player"
+          onClick={goBack}
+          className="flex items-center gap-1 text-muted-foreground hover:text-foreground text-sm transition-colors"
+        >
+          <ChevronDown className="w-4 h-4" /> Now Playing
+        </button>
+        {queue.length > 0 && (
+          <button
+            onClick={() => setShowUpNext(!showUpNext)}
+            className={`flex items-center gap-1.5 text-xs font-medium transition-colors ${showUpNext ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            <ListMusic className="w-4 h-4" />
+            Up Next ({queue.length})
+          </button>
+        )}
+      </div>
 
       {/* Album art */}
       <div className="w-full max-w-xs aspect-square rounded-2xl overflow-hidden bg-muted shadow-2xl">
@@ -207,6 +231,36 @@ export default function PlayerPage() {
         <span className="px-2 py-0.5 bg-muted rounded-full capitalize">{currentSong.source}</span>
         <span className="px-2 py-0.5 bg-muted rounded-full capitalize">{currentSong.storageType.replace("_", " ")}</span>
       </div>
+
+      {/* Up Next panel */}
+      {showUpNext && queue.length > 0 && (
+        <div className="w-full max-w-xs">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+            Up Next
+          </p>
+          <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+            {queue.map((song, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 bg-card border border-border rounded-xl p-2.5"
+              >
+                <span className="text-xs text-muted-foreground w-4 text-right shrink-0">{i + 1}</span>
+                {song.coverUrl ? (
+                  <img src={song.coverUrl} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" />
+                ) : (
+                  <div className="w-9 h-9 bg-muted rounded-lg flex items-center justify-center shrink-0">
+                    <Music2 className="w-4 h-4 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold truncate">{song.title}</p>
+                  <p className="text-[10px] text-muted-foreground truncate">{song.artist}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
