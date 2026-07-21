@@ -114,7 +114,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  function onSongEnded() {
+  async function onSongEnded() {
     const { repeat, queue, currentSong, shuffle, history } = liveRef.current;
 
     if (repeat === "one" && currentSong) {
@@ -143,8 +143,22 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // Auto-continue: fetch public songs when queue exhausted
     setIsPlaying(false);
     stopProgress();
+    try {
+      const resp = await fetch("/api/songs?storageType=public_download&limit=50");
+      if (resp.ok) {
+        const publicSongs = await resp.json() as Song[];
+        const cur = liveRef.current.currentSong;
+        const candidates = publicSongs.filter((s) => s.id !== cur?.id);
+        if (candidates.length > 0) {
+          const next = candidates[Math.floor(Math.random() * candidates.length)];
+          playInternal(next);
+          return;
+        }
+      }
+    } catch { /* no public songs available — stop silently */ }
   }
 
   onSongEndedRef.current = onSongEnded;

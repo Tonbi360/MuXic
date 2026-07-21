@@ -18,11 +18,12 @@ import DailyPage from "@/pages/daily";
 import ForumPage from "@/pages/forum";
 import ProfilePage from "@/pages/profile";
 import PlayerPage from "@/pages/player";
+import PublicLibraryPage from "@/pages/public-library";
 import {
   Home, Search, ListMusic, Mic2,
   MessageSquare, UserCircle,
   PlayCircle, Pause, SkipForward, Trophy, Radio,
-  Menu, X, AlertTriangle, Trash2,
+  Menu, X, AlertTriangle, Trash2, Library,
 } from "lucide-react";
 
 // Wire up the user-id getter so every API call carries X-User-Id
@@ -87,6 +88,7 @@ const communityItems = [
   { href: "/songboard", icon: Trophy, label: "Song Board" },
   { href: "/queue", icon: ListMusic, label: "Shared Queue" },
   { href: "/daily", icon: Radio, label: "Daily Playlist" },
+  { href: "/public-library", icon: Library, label: "Public Library" },
   { href: "/forum", icon: MessageSquare, label: "Forum" },
 ];
 
@@ -348,6 +350,7 @@ function App() {
                 <Route path="/forum" component={ForumPage} />
                 <Route path="/profile" component={ProfilePage} />
                 <Route path="/player" component={PlayerPage} />
+                <Route path="/public-library" component={PublicLibraryPage} />
                 <Route component={NotFound} />
               </Switch>
             </Layout>

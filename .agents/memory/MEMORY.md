@@ -1,3 +1,5 @@
 - [Playlist add-song gap](playlist-add-song.md) — addSongToPlaylist/removeSongFromPlaylist hooks and backend existed but had no UI; fixed in playlists.tsx
 - [Display names vs UUIDs](display-names.md) — Song Board, Daily, Queue all showed truncated UUIDs; fixed by fetching useListUsers and building a Map on the frontend
 - [Profile 404 on load](profile-404.md) — GET /users/:userId always 404s before auto-register; this is documented expected behavior, not a bug
+- [Save-to-library pattern](save-to-library.md) — POST /api/songs/:id/save copies public songs to requesting user's library; idempotent on sourceUrl+userId; used via direct fetch (no codegen needed)
+- [onSongEnded must be async](on-song-ended-async.md) — auto-continue fetch in use-player.tsx requires async function; onSongEndedRef.current() is fire-and-forget so async is safe

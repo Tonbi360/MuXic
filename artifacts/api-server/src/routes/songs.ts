@@ -227,6 +227,40 @@ router.delete("/songs/:id", async (req, res): Promise<void> => {
   res.sendStatus(204);
 });
 
+// Save a public song to the requesting user's own library (creates a copy)
+router.post("/songs/:id/save", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid song id" }); return; }
+
+  const userId = req.userId;
+  if (!userId) { res.status(401).json({ error: "X-User-Id header required" }); return; }
+
+  const [original] = await db.select().from(songsTable).where(eq(songsTable.id, id));
+  if (!original) { res.status(404).json({ error: "Song not found" }); return; }
+
+  // Only public songs can be saved by others
+  const publicTypes = ["public_limited", "public_download"] as const;
+  if (!publicTypes.includes(original.storageType as typeof publicTypes[number]) && original.userId !== userId) {
+    res.status(403).json({ error: "Only public songs can be saved" }); return;
+  }
+
+  // Idempotent: already own a copy with this sourceUrl?
+  const [existing] = await db.select().from(songsTable)
+    .where(and(eq(songsTable.sourceUrl, original.sourceUrl), eq(songsTable.userId, userId)));
+  if (existing) { res.json(toSongResponse(existing)); return; }
+
+  const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+  const [song] = await db.insert(songsTable).values({
+    title: original.title, artist: original.artist, album: original.album,
+    duration: original.duration, coverUrl: original.coverUrl,
+    source: original.source, sourceUrl: original.sourceUrl,
+    storageType: "limited", category: original.category,
+    tags: original.tags, userId, isPublic: false, expiresAt, voteCount: 0,
+  }).returning();
+
+  res.status(201).json(toSongResponse(song));
+});
+
 router.post("/songs/:id/promote", async (req, res): Promise<void> => {
   const params = PromoteSongParams.safeParse(req.params);
   if (!params.success) {

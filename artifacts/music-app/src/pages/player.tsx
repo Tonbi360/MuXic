@@ -4,7 +4,7 @@ import type { RepeatMode } from "@/hooks/use-player";
 import { useLocation } from "wouter";
 import {
   Play, Pause, SkipForward, SkipBack, Volume2, Music2,
-  Shuffle, Repeat, Moon, ChevronDown, ListMusic,
+  Shuffle, Repeat, Moon, ChevronDown, ListMusic, MicVocal, Loader2,
 } from "lucide-react";
 
 function formatTime(secs: number) {
@@ -12,6 +12,47 @@ function formatTime(secs: number) {
   const m = Math.floor(secs / 60);
   const s = Math.floor(secs % 60);
   return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+interface LrcLibTrack {
+  plainLyrics?: string | null;
+  syncedLyrics?: string | null;
+}
+
+function useLyrics(artist: string | null | undefined, title: string | null | undefined) {
+  const [lyrics, setLyrics] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    if (!artist || !title) { setLyrics(null); return; }
+    let cancelled = false;
+    setLoading(true);
+    setError(false);
+    setLyrics(null);
+
+    const params = new URLSearchParams({ artist_name: artist, track_name: title });
+    fetch(`https://lrclib.net/api/search?${params}`)
+      .then((r) => r.json())
+      .then((data: LrcLibTrack[]) => {
+        if (cancelled) return;
+        const track = data.find((t) => t.plainLyrics) ?? data[0];
+        if (track?.plainLyrics) {
+          setLyrics(track.plainLyrics);
+        } else {
+          setLyrics(null);
+          setError(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) { setError(true); setLyrics(null); }
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [artist, title]);
+
+  return { lyrics, loading, error };
 }
 
 export default function PlayerPage() {
@@ -25,11 +66,26 @@ export default function PlayerPage() {
   const [sleepMinutes, setSleepMinutes] = useState<number | null>(null);
   const [sleepLeft, setSleepLeft] = useState<number | null>(null);
   const [showUpNext, setShowUpNext] = useState(false);
+  const [showLyrics, setShowLyrics] = useState(false);
+
+  const { lyrics, loading: lyricsLoading, error: lyricsError } = useLyrics(
+    showLyrics ? currentSong?.artist : null,
+    showLyrics ? currentSong?.title : null,
+  );
 
   const isPlayingRef = useRef(isPlaying);
   useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
   const togglePlayRef = useRef(togglePlay);
   useEffect(() => { togglePlayRef.current = togglePlay; }, [togglePlay]);
+
+  // Reset lyrics panel when song changes
+  const prevSongId = useRef<number | null>(null);
+  useEffect(() => {
+    if (currentSong && currentSong.id !== prevSongId.current) {
+      prevSongId.current = currentSong.id;
+      // Keep panel open but let useLyrics refetch
+    }
+  }, [currentSong]);
 
   // Sleep timer
   useEffect(() => {
@@ -51,11 +107,8 @@ export default function PlayerPage() {
   }, [sleepMinutes]);
 
   function goBack() {
-    if (window.history.length > 1) {
-      window.history.back();
-    } else {
-      setLocation("/");
-    }
+    if (window.history.length > 1) window.history.back();
+    else setLocation("/");
   }
 
   if (!currentSong) {
@@ -75,8 +128,8 @@ export default function PlayerPage() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-start min-h-full bg-background p-6 md:p-10 gap-8">
-      {/* Back */}
+    <div className="flex flex-col items-center justify-start min-h-full bg-background p-6 md:p-10 gap-6">
+      {/* Back + panel toggles */}
       <div className="self-start w-full flex items-center justify-between">
         <button
           data-testid="button-back-player"
@@ -85,19 +138,26 @@ export default function PlayerPage() {
         >
           <ChevronDown className="w-4 h-4" /> Now Playing
         </button>
-        {queue.length > 0 && (
+        <div className="flex items-center gap-2">
           <button
-            onClick={() => setShowUpNext(!showUpNext)}
-            className={`flex items-center gap-1.5 text-xs font-medium transition-colors ${showUpNext ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+            onClick={() => { setShowLyrics(!showLyrics); setShowUpNext(false); }}
+            className={`flex items-center gap-1.5 text-xs font-medium transition-colors px-2 py-1 rounded-md ${showLyrics ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}
           >
-            <ListMusic className="w-4 h-4" />
-            Up Next ({queue.length})
+            <MicVocal className="w-4 h-4" /> Lyrics
           </button>
-        )}
+          {queue.length > 0 && (
+            <button
+              onClick={() => { setShowUpNext(!showUpNext); setShowLyrics(false); }}
+              className={`flex items-center gap-1.5 text-xs font-medium transition-colors px-2 py-1 rounded-md ${showUpNext ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <ListMusic className="w-4 h-4" /> Up Next ({queue.length})
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Album art */}
-      <div className="w-full max-w-xs aspect-square rounded-2xl overflow-hidden bg-muted shadow-2xl">
+      <div className="w-full max-w-xs aspect-square rounded-2xl overflow-hidden bg-muted shadow-2xl shrink-0">
         {currentSong.coverUrl ? (
           <img src={currentSong.coverUrl} alt="" className="w-full h-full object-cover" />
         ) : (
@@ -113,6 +173,28 @@ export default function PlayerPage() {
         <p className="text-muted-foreground mt-1 truncate">{currentSong.artist}</p>
         {currentSong.album && <p className="text-xs text-muted-foreground mt-0.5 truncate">{currentSong.album}</p>}
       </div>
+
+      {/* Lyrics panel */}
+      {showLyrics && (
+        <div className="w-full max-w-xs">
+          <div className="bg-card border border-border rounded-2xl p-4 max-h-64 overflow-y-auto">
+            {lyricsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : lyricsError || !lyrics ? (
+              <div className="text-center py-6 text-muted-foreground">
+                <MicVocal className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                <p className="text-sm">Lyrics not found for this song</p>
+              </div>
+            ) : (
+              <pre className="text-sm text-foreground/80 whitespace-pre-wrap font-sans leading-relaxed">
+                {lyrics}
+              </pre>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Seek bar */}
       <div className="w-full max-w-xs space-y-1">

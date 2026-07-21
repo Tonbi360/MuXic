@@ -1,25 +1,34 @@
 import { useState } from "react";
-import { useGetQueue, useAddToQueue, useVetoQueueEntry, useRemoveFromQueue, useListSongs, useListUsers, getGetQueueQueryKey } from "@workspace/api-client-react";
+import {
+  useGetQueue, useAddToQueue, useVetoQueueEntry, useRemoveFromQueue,
+  useListSongs, useListUsers, useListPlaylists, useAddSongToPlaylist,
+  getGetQueueQueryKey, getListSongsQueryKey,
+} from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePlayer } from "@/hooks/use-player";
 import { getUserId } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { ListMusic, Play, ThumbsDown, Plus, Music2, X, Zap } from "lucide-react";
+import { ListMusic, Play, ThumbsDown, Plus, Music2, X, Zap, PlayCircle, BookmarkPlus, Check, ListPlus } from "lucide-react";
 
 export default function QueuePage() {
   const userId = getUserId();
-  const { playSong } = usePlayer();
+  const { playSong, playAll } = usePlayer();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
   const [selectedSongId, setSelectedSongId] = useState<number | null>(null);
+  const [savingId, setSavingId] = useState<number | null>(null);
+  const [savedIds, setSavedIds] = useState<Set<number>>(new Set());
+  const [playlistPickerFor, setPlaylistPickerFor] = useState<number | null>(null);
 
   const { data: queue, isLoading } = useGetQueue();
   const { data: mySongs } = useListSongs();
   const { data: users } = useListUsers();
+  const { data: playlists } = useListPlaylists({ userId });
   const addMutation = useAddToQueue();
   const vetoMutation = useVetoQueueEntry();
   const removeMutation = useRemoveFromQueue();
+  const addToPlaylistMutation = useAddSongToPlaylist();
 
   const userMap = new Map((users ?? []).map((u) => [u.userId, u.displayName]));
   const userSongs = (mySongs ?? []).filter((s) => s.userId === userId);
@@ -63,7 +72,14 @@ export default function QueuePage() {
     });
   }
 
-  function handlePlay(entry: NonNullable<typeof queue>[number]) {
+  function handlePlayAll() {
+    const songs = (queue ?? []).map((e) => e.song).filter(Boolean) as NonNullable<typeof queue>[number]["song"][];
+    if (songs.length === 0) return;
+    playAll(songs as Parameters<typeof playAll>[0]);
+    toast({ title: `Playing all ${songs.length} songs from the queue` });
+  }
+
+  function handlePlaySingle(entry: NonNullable<typeof queue>[number]) {
     if (entry.song) {
       playSong(entry.song);
       removeMutation.mutate({ id: entry.id }, {
@@ -72,21 +88,65 @@ export default function QueuePage() {
     }
   }
 
+  async function handleSaveToLibrary(songId: number, title: string) {
+    setSavingId(songId);
+    try {
+      const resp = await fetch(`/api/songs/${songId}/save`, {
+        method: "POST",
+        headers: { "x-user-id": userId },
+      });
+      const data = await resp.json() as { error?: string };
+      if (!resp.ok) {
+        toast({ title: data.error ?? "Could not save", variant: "destructive" });
+        return;
+      }
+      setSavedIds((s) => new Set([...s, songId]));
+      queryClient.invalidateQueries({ queryKey: getListSongsQueryKey() });
+      toast({ title: "Saved to Library", description: `"${title}" added (48h)` });
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  function handleAddToPlaylist(playlistId: number, songId: number) {
+    addToPlaylistMutation.mutate(
+      { id: playlistId, data: { songId } },
+      {
+        onSuccess: () => {
+          toast({ title: "Added to playlist" });
+          setPlaylistPickerFor(null);
+        },
+        onError: () => toast({ title: "Failed to add to playlist", variant: "destructive" }),
+      }
+    );
+  }
+
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-4xl font-bold font-serif mb-1">Mixed Queue</h1>
-          <p className="text-muted-foreground">Community jukebox — everyone contributes</p>
+          <p className="text-muted-foreground">Community jukebox — everyone contributes, songs auto-play</p>
         </div>
-        <button
-          data-testid="button-add-to-queue"
-          onClick={() => setShowAdd(!showAdd)}
-          disabled={tokensLeft === 0}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-40 shrink-0"
-        >
-          <Plus className="w-4 h-4" /> Add Song
-        </button>
+        <div className="flex gap-2 shrink-0">
+          {queue && queue.length > 0 && (
+            <button
+              data-testid="button-play-all-queue"
+              onClick={handlePlayAll}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
+            >
+              <PlayCircle className="w-4 h-4" /> Play All
+            </button>
+          )}
+          <button
+            data-testid="button-add-to-queue"
+            onClick={() => setShowAdd(!showAdd)}
+            disabled={tokensLeft === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-muted text-foreground rounded-lg text-sm font-medium hover:bg-muted/80 transition-colors disabled:opacity-40"
+          >
+            <Plus className="w-4 h-4" /> Add Song
+          </button>
+        </div>
       </div>
 
       {/* Token meter */}
@@ -182,6 +242,8 @@ export default function QueuePage() {
           {queue.map((entry, idx) => {
             const addedByName = userMap.get(entry.userId) ?? entry.userId.slice(0, 8) + "…";
             const isMe = entry.userId === userId;
+            const isPublic = entry.song?.storageType === "public_limited" || entry.song?.storageType === "public_download";
+            const alreadySaved = savedIds.has(entry.songId) || entry.song?.userId === userId;
             return (
               <div
                 key={entry.id}
@@ -217,15 +279,61 @@ export default function QueuePage() {
                     )}
                   </p>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-1.5 shrink-0">
                   <button
                     data-testid={`button-play-queue-${entry.id}`}
-                    onClick={() => handlePlay(entry)}
+                    onClick={() => handlePlaySingle(entry)}
                     className="p-2 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
                     title="Play now"
                   >
                     <Play className="w-4 h-4" />
                   </button>
+
+                  {/* Save to Library */}
+                  {isPublic && !alreadySaved ? (
+                    <button
+                      data-testid={`button-save-queue-${entry.id}`}
+                      onClick={() => entry.song && handleSaveToLibrary(entry.songId, entry.song.title)}
+                      disabled={savingId === entry.songId}
+                      className="p-2 bg-muted rounded-lg hover:bg-muted/80 transition-colors disabled:opacity-50"
+                      title="Save to Library"
+                    >
+                      <BookmarkPlus className="w-4 h-4" />
+                    </button>
+                  ) : alreadySaved ? (
+                    <span className="p-2 text-primary" title="In your library">
+                      <Check className="w-4 h-4" />
+                    </span>
+                  ) : null}
+
+                  {/* Add to Playlist */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setPlaylistPickerFor(playlistPickerFor === entry.songId ? null : entry.songId)}
+                      className="p-2 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
+                      title="Add to Playlist"
+                    >
+                      <ListPlus className="w-4 h-4" />
+                    </button>
+                    {playlistPickerFor === entry.songId && (
+                      <div className="absolute right-0 top-full mt-1 z-50 bg-popover border border-border rounded-xl shadow-xl min-w-[180px] p-1">
+                        {!playlists || playlists.length === 0 ? (
+                          <p className="text-xs text-muted-foreground px-3 py-2">No playlists yet</p>
+                        ) : (
+                          playlists.map((pl) => (
+                            <button
+                              key={pl.id}
+                              onClick={() => handleAddToPlaylist(pl.id, entry.songId)}
+                              className="w-full text-left text-sm px-3 py-1.5 rounded-lg hover:bg-muted transition-colors truncate"
+                            >
+                              {pl.name}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+
                   <button
                     data-testid={`button-veto-${entry.id}`}
                     onClick={() => handleVeto(entry.id)}
