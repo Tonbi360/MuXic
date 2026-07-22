@@ -49,6 +49,7 @@ import type {
   SearchSoundcloudParams,
   SearchYoutubeParams,
   ShareInput,
+  SharePlaylistInput,
   Song,
   SongInput,
   SongUpdate,
@@ -2860,6 +2861,77 @@ export const useShareSong = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getShareSongMutationOptions(options));
+    }
+
+export const getSharePlaylistUrl = () => {
+
+
+
+
+  return `/api/users/share-playlist`
+}
+
+/**
+ * @summary Share a playlist with another user
+ */
+export const sharePlaylist = async (sharePlaylistInput: SharePlaylistInput, options?: RequestInit): Promise<InboxItem> => {
+
+  return customFetch<InboxItem>(getSharePlaylistUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      sharePlaylistInput,)
+  }
+);}
+
+
+
+
+export const getSharePlaylistMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sharePlaylist>>, TError,{data: BodyType<SharePlaylistInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sharePlaylist>>, TError,{data: BodyType<SharePlaylistInput>}, TContext> => {
+
+const mutationKey = ['sharePlaylist'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sharePlaylist>>, {data: BodyType<SharePlaylistInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  sharePlaylist(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SharePlaylistMutationResult = NonNullable<Awaited<ReturnType<typeof sharePlaylist>>>
+    export type SharePlaylistMutationBody = BodyType<SharePlaylistInput>
+    export type SharePlaylistMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Share a playlist with another user
+ */
+export const useSharePlaylist = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sharePlaylist>>, TError,{data: BodyType<SharePlaylistInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sharePlaylist>>,
+        TError,
+        {data: BodyType<SharePlaylistInput>},
+        TContext
+      > => {
+      return useMutation(getSharePlaylistMutationOptions(options));
     }
 
 export const getGetStatsUrl = () => {

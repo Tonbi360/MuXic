@@ -147,6 +147,7 @@ export default function LibraryPage() {
   const [storageFilter, setStorageFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("date_desc");
+  const [activeTag, setActiveTag] = useState<string | null>(null);
   const [sharingSong, setSharingSong] = useState<Song | null>(null);
   const userId = getUserId();
   const { playSong, playAll } = usePlayer();
@@ -162,7 +163,14 @@ export default function LibraryPage() {
 
   const userSongs = (songs ?? []).filter((s) => s.userId === userId);
 
-  const sortedSongs = [...userSongs].sort((a, b) => {
+  // Collect all unique tags from user's library
+  const allTags = Array.from(new Set(userSongs.flatMap((s) => s.tags ?? []))).sort();
+
+  const filteredSongs = activeTag
+    ? userSongs.filter((s) => (s.tags ?? []).includes(activeTag))
+    : userSongs;
+
+  const sortedSongs = [...filteredSongs].sort((a, b) => {
     if (sort === "date_desc") return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     if (sort === "date_asc") return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     if (sort === "title") return a.title.localeCompare(b.title);
@@ -250,6 +258,35 @@ export default function LibraryPage() {
           </SelectContent>
         </Select>
       </div>
+
+      {/* Tag chips */}
+      {allTags.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setActiveTag(null)}
+            className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+              activeTag === null
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            All
+          </button>
+          {allTags.map((tag) => (
+            <button
+              key={tag}
+              onClick={() => setActiveTag(activeTag === tag ? null : tag)}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                activeTag === tag
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              #{tag}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Songs */}
       {isLoading ? (

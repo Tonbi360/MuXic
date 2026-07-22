@@ -6,7 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface UserInput {
-  displayName: string;
-  avatarUrl?: string;
+export interface SharePlaylistInput {
+  fromUserId: string;
+  toUserId: string;
+  playlistId: number;
+  message?: string;
 }

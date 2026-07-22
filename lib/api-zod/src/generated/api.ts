@@ -24,6 +24,7 @@ export const ListSongsQueryParams = zod.object({
   "storageType": zod.coerce.string().optional(),
   "sort": zod.coerce.string().optional(),
   "search": zod.coerce.string().optional(),
+  "lyricsSearch": zod.coerce.string().optional(),
   "limit": zod.coerce.number().optional(),
   "offset": zod.coerce.number().optional()
 })
@@ -40,6 +41,7 @@ export const ListSongsResponseItem = zod.object({
   "storageType": zod.enum(['limited', 'permanent', 'public_limited', 'public_download']),
   "category": zod.string(),
   "tags": zod.array(zod.string()).optional(),
+  "lyrics": zod.string().nullish(),
   "userId": zod.string(),
   "expiresAt": zod.string().nullish(),
   "voteCount": zod.number().optional(),
@@ -87,6 +89,7 @@ export const GetSongResponse = zod.object({
   "storageType": zod.enum(['limited', 'permanent', 'public_limited', 'public_download']),
   "category": zod.string(),
   "tags": zod.array(zod.string()).optional(),
+  "lyrics": zod.string().nullish(),
   "userId": zod.string(),
   "expiresAt": zod.string().nullish(),
   "voteCount": zod.number().optional(),
@@ -124,6 +127,7 @@ export const UpdateSongResponse = zod.object({
   "storageType": zod.enum(['limited', 'permanent', 'public_limited', 'public_download']),
   "category": zod.string(),
   "tags": zod.array(zod.string()).optional(),
+  "lyrics": zod.string().nullish(),
   "userId": zod.string(),
   "expiresAt": zod.string().nullish(),
   "voteCount": zod.number().optional(),
@@ -163,6 +167,7 @@ export const PromoteSongResponse = zod.object({
   "storageType": zod.enum(['limited', 'permanent', 'public_limited', 'public_download']),
   "category": zod.string(),
   "tags": zod.array(zod.string()).optional(),
+  "lyrics": zod.string().nullish(),
   "userId": zod.string(),
   "expiresAt": zod.string().nullish(),
   "voteCount": zod.number().optional(),
@@ -259,6 +264,7 @@ export const TagSongResponse = zod.object({
   "storageType": zod.enum(['limited', 'permanent', 'public_limited', 'public_download']),
   "category": zod.string(),
   "tags": zod.array(zod.string()).optional(),
+  "lyrics": zod.string().nullish(),
   "userId": zod.string(),
   "expiresAt": zod.string().nullish(),
   "voteCount": zod.number().optional(),
@@ -292,6 +298,7 @@ export const ListPlaylistsResponseItem = zod.object({
   "storageType": zod.enum(['limited', 'permanent', 'public_limited', 'public_download']),
   "category": zod.string(),
   "tags": zod.array(zod.string()).optional(),
+  "lyrics": zod.string().nullish(),
   "userId": zod.string(),
   "expiresAt": zod.string().nullish(),
   "voteCount": zod.number().optional(),
@@ -338,6 +345,7 @@ export const GetPlaylistResponse = zod.object({
   "storageType": zod.enum(['limited', 'permanent', 'public_limited', 'public_download']),
   "category": zod.string(),
   "tags": zod.array(zod.string()).optional(),
+  "lyrics": zod.string().nullish(),
   "userId": zod.string(),
   "expiresAt": zod.string().nullish(),
   "voteCount": zod.number().optional(),
@@ -385,6 +393,7 @@ export const AddSongToPlaylistResponse = zod.object({
   "storageType": zod.enum(['limited', 'permanent', 'public_limited', 'public_download']),
   "category": zod.string(),
   "tags": zod.array(zod.string()).optional(),
+  "lyrics": zod.string().nullish(),
   "userId": zod.string(),
   "expiresAt": zod.string().nullish(),
   "voteCount": zod.number().optional(),
@@ -429,6 +438,7 @@ export const ListSongBoardResponseItem = zod.object({
   "storageType": zod.enum(['limited', 'permanent', 'public_limited', 'public_download']),
   "category": zod.string(),
   "tags": zod.array(zod.string()).optional(),
+  "lyrics": zod.string().nullish(),
   "userId": zod.string(),
   "expiresAt": zod.string().nullish(),
   "voteCount": zod.number().optional(),
@@ -469,6 +479,7 @@ export const VoteSongResponse = zod.object({
   "storageType": zod.enum(['limited', 'permanent', 'public_limited', 'public_download']),
   "category": zod.string(),
   "tags": zod.array(zod.string()).optional(),
+  "lyrics": zod.string().nullish(),
   "userId": zod.string(),
   "expiresAt": zod.string().nullish(),
   "voteCount": zod.number().optional(),
@@ -512,6 +523,7 @@ export const GetQueueResponseItem = zod.object({
   "storageType": zod.enum(['limited', 'permanent', 'public_limited', 'public_download']),
   "category": zod.string(),
   "tags": zod.array(zod.string()).optional(),
+  "lyrics": zod.string().nullish(),
   "userId": zod.string(),
   "expiresAt": zod.string().nullish(),
   "voteCount": zod.number().optional(),
@@ -561,6 +573,7 @@ export const VetoQueueEntryResponse = zod.object({
   "storageType": zod.enum(['limited', 'permanent', 'public_limited', 'public_download']),
   "category": zod.string(),
   "tags": zod.array(zod.string()).optional(),
+  "lyrics": zod.string().nullish(),
   "userId": zod.string(),
   "expiresAt": zod.string().nullish(),
   "voteCount": zod.number().optional(),
@@ -600,6 +613,7 @@ export const GetDailyPlaylistResponseItem = zod.object({
   "storageType": zod.enum(['limited', 'permanent', 'public_limited', 'public_download']),
   "category": zod.string(),
   "tags": zod.array(zod.string()).optional(),
+  "lyrics": zod.string().nullish(),
   "userId": zod.string(),
   "expiresAt": zod.string().nullish(),
   "voteCount": zod.number().optional(),
@@ -645,6 +659,7 @@ export const GetDailyArchiveResponseItem = zod.object({
   "storageType": zod.enum(['limited', 'permanent', 'public_limited', 'public_download']),
   "category": zod.string(),
   "tags": zod.array(zod.string()).optional(),
+  "lyrics": zod.string().nullish(),
   "userId": zod.string(),
   "expiresAt": zod.string().nullish(),
   "voteCount": zod.number().optional(),
@@ -735,6 +750,7 @@ export const GetUserParams = zod.object({
 export const GetUserResponse = zod.object({
   "userId": zod.string(),
   "displayName": zod.string(),
+  "avatarUrl": zod.string().nullish(),
   "reputation": zod.number(),
   "badgeCount": zod.number(),
   "badges": zod.array(zod.string()).optional(),
@@ -752,12 +768,14 @@ export const RegisterUserParams = zod.object({
 })
 
 export const RegisterUserBody = zod.object({
-  "displayName": zod.string()
+  "displayName": zod.string(),
+  "avatarUrl": zod.string().optional()
 })
 
 export const RegisterUserResponse = zod.object({
   "userId": zod.string(),
   "displayName": zod.string(),
+  "avatarUrl": zod.string().nullish(),
   "reputation": zod.number(),
   "badgeCount": zod.number(),
   "badges": zod.array(zod.string()).optional(),
@@ -789,6 +807,7 @@ export const GetUserActivityResponseItem = zod.object({
   "storageType": zod.enum(['limited', 'permanent', 'public_limited', 'public_download']),
   "category": zod.string(),
   "tags": zod.array(zod.string()).optional(),
+  "lyrics": zod.string().nullish(),
   "userId": zod.string(),
   "expiresAt": zod.string().nullish(),
   "voteCount": zod.number().optional(),
@@ -810,10 +829,11 @@ export const GetUserInboxParams = zod.object({
 
 export const GetUserInboxResponseItem = zod.object({
   "id": zod.number(),
+  "type": zod.enum(['song', 'playlist']).optional(),
   "fromUserId": zod.string(),
   "fromUserName": zod.string().nullish(),
   "toUserId": zod.string(),
-  "songId": zod.number(),
+  "songId": zod.number().nullish(),
   "song": zod.object({
   "id": zod.number(),
   "title": zod.string(),
@@ -826,12 +846,15 @@ export const GetUserInboxResponseItem = zod.object({
   "storageType": zod.enum(['limited', 'permanent', 'public_limited', 'public_download']),
   "category": zod.string(),
   "tags": zod.array(zod.string()).optional(),
+  "lyrics": zod.string().nullish(),
   "userId": zod.string(),
   "expiresAt": zod.string().nullish(),
   "voteCount": zod.number().optional(),
   "isPublic": zod.boolean().optional(),
   "createdAt": zod.string()
-}),
+}).optional(),
+  "playlistId": zod.number().nullish(),
+  "playlistName": zod.string().nullish(),
   "message": zod.string().nullish(),
   "createdAt": zod.string()
 })
@@ -845,6 +868,17 @@ export const ShareSongBody = zod.object({
   "fromUserId": zod.string(),
   "toUserId": zod.string(),
   "songId": zod.number(),
+  "message": zod.string().optional()
+})
+
+
+/**
+ * @summary Share a playlist with another user
+ */
+export const SharePlaylistBody = zod.object({
+  "fromUserId": zod.string(),
+  "toUserId": zod.string(),
+  "playlistId": zod.number(),
   "message": zod.string().optional()
 })
 
@@ -886,6 +920,7 @@ export const GetTrendingResponseItem = zod.object({
   "storageType": zod.enum(['limited', 'permanent', 'public_limited', 'public_download']),
   "category": zod.string(),
   "tags": zod.array(zod.string()).optional(),
+  "lyrics": zod.string().nullish(),
   "userId": zod.string(),
   "expiresAt": zod.string().nullish(),
   "voteCount": zod.number().optional(),

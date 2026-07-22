@@ -14,6 +14,7 @@ export const songsTable = pgTable("songs", {
   storageType: text("storage_type").notNull().default("limited"), // limited | permanent | public_limited | public_download
   category: text("category").notNull().default("general"),
   tags: text("tags").array().notNull().default([]),
+  lyrics: text("lyrics"),
   userId: text("user_id").notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
   voteCount: integer("vote_count").notNull().default(0),

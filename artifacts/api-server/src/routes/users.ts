@@ -7,6 +7,7 @@ import {
   boardEntriesTable,
   dailyPlaylistTable,
   forumTable,
+  playlistsTable,
 } from "@workspace/db";
 import { eq, sql, desc } from "drizzle-orm";
 import {
@@ -15,6 +16,7 @@ import {
   RegisterUserBody,
   GetUserInboxParams,
   ShareSongBody,
+  SharePlaylistBody,
 } from "@workspace/api-zod";
 import { toSongResponse } from "./songs";
 
@@ -58,6 +60,7 @@ async function buildUserProfile(user: typeof usersTable.$inferSelect) {
   return {
     userId: user.userId,
     displayName: user.displayName,
+    avatarUrl: user.avatarUrl ?? null,
     reputation,
     badgeCount: badges.length,
     badges,
@@ -106,15 +109,18 @@ router.post("/users/:userId/register", async (req, res): Promise<void> => {
   const [existing] = await db.select().from(usersTable).where(eq(usersTable.userId, params.data.userId));
   let user;
   if (existing) {
+    const updates: Record<string, unknown> = { displayName: parsed.data.displayName };
+    if (parsed.data.avatarUrl !== undefined) updates.avatarUrl = parsed.data.avatarUrl;
     [user] = await db
       .update(usersTable)
-      .set({ displayName: parsed.data.displayName })
+      .set(updates)
       .where(eq(usersTable.userId, params.data.userId))
       .returning();
   } else {
     [user] = await db.insert(usersTable).values({
       userId: params.data.userId,
       displayName: parsed.data.displayName,
+      avatarUrl: parsed.data.avatarUrl ?? null,
       reputation: 0,
       badges: [],
     }).returning();
@@ -256,6 +262,53 @@ router.post("/users/share", async (req, res): Promise<void> => {
     toUserId: item.toUserId,
     songId: item.songId,
     song: song ? toSongResponse(song) : null,
+    message: item.message,
+    createdAt: item.createdAt.toISOString(),
+  });
+});
+
+router.post("/users/share-playlist", async (req, res): Promise<void> => {
+  const parsed = SharePlaylistBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const { fromUserId, toUserId, playlistId, message } = parsed.data;
+
+  // Rate limit: share cooldown per sender
+  const lastShare = inboxCooldownMap.get(fromUserId);
+  if (lastShare && Date.now() - lastShare < INBOX_COOLDOWN_MS) {
+    const remaining = Math.ceil((INBOX_COOLDOWN_MS - (Date.now() - lastShare)) / 1000);
+    res.status(429).json({ error: `Please wait ${remaining}s before sharing again` });
+    return;
+  }
+  inboxCooldownMap.set(fromUserId, Date.now());
+
+  const [playlist] = await db.select().from(playlistsTable).where(eq(playlistsTable.id, playlistId));
+  if (!playlist) {
+    res.status(404).json({ error: "Playlist not found" });
+    return;
+  }
+
+  const [item] = await db.insert(inboxTable).values({
+    fromUserId,
+    toUserId,
+    playlistId,
+    playlistName: playlist.name,
+    message: message ?? null,
+  }).returning();
+
+  const [fromUser] = await db.select().from(usersTable).where(eq(usersTable.userId, item.fromUserId));
+
+  res.status(201).json({
+    id: item.id,
+    type: "playlist",
+    fromUserId: item.fromUserId,
+    fromUserName: fromUser?.displayName ?? null,
+    toUserId: item.toUserId,
+    playlistId: item.playlistId,
+    playlistName: item.playlistName,
     message: item.message,
     createdAt: item.createdAt.toISOString(),
   });

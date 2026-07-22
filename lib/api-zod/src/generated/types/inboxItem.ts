@@ -5,16 +5,23 @@
  * SoundBoard - Community Music PWA API
  * OpenAPI spec version: 0.1.0
  */
+import type { InboxItemType } from './inboxItemType';
 import type { Song } from './song';
 
 export interface InboxItem {
   id: number;
+  type?: InboxItemType;
   fromUserId: string;
   /** @nullable */
   fromUserName?: string | null;
   toUserId: string;
-  songId: number;
-  song: Song;
+  /** @nullable */
+  songId?: number | null;
+  song?: Song;
+  /** @nullable */
+  playlistId?: number | null;
+  /** @nullable */
+  playlistName?: string | null;
   /** @nullable */
   message?: string | null;
   createdAt: string;

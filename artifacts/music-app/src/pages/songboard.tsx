@@ -89,7 +89,7 @@ export default function SongboardPage() {
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: "hot", label: "Hot (24h)", icon: Flame },
     { id: "legends", label: "Legends", icon: Trophy },
-    { id: "mini", label: "Mini Board", icon: Radio },
+    { id: "mini", label: "Discover", icon: Radio },
   ];
 
   return (
@@ -126,7 +126,7 @@ export default function SongboardPage() {
 
       {tab === "mini" && (
         <p className="text-sm text-muted-foreground bg-muted/50 rounded-lg px-4 py-2">
-          Every searched song appears here. Give it a vote to promote it to the main board.
+          All newly imported songs land here. Vote to promote them to Hot or Legends.
         </p>
       )}
 

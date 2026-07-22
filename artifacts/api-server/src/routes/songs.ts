@@ -39,6 +39,7 @@ function toSongResponse(s: typeof songsTable.$inferSelect) {
     storageType: s.storageType,
     category: s.category,
     tags: s.tags,
+    lyrics: s.lyrics ?? null,
     userId: s.userId,
     expiresAt: s.expiresAt ? s.expiresAt.toISOString() : null,
     voteCount: s.voteCount,
@@ -53,7 +54,7 @@ router.get("/songs", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const { category, storageType, sort, search, limit = 50, offset = 0 } = params.data;
+  const { category, storageType, sort, search, lyricsSearch, limit = 50, offset = 0 } = params.data;
 
   let query = db.select().from(songsTable).$dynamic();
 
@@ -67,6 +68,9 @@ router.get("/songs", async (req, res): Promise<void> => {
         ilike(songsTable.artist, `%${search}%`)
       )!
     );
+  }
+  if (lyricsSearch) {
+    conditions.push(ilike(songsTable.lyrics, `%${lyricsSearch}%`));
   }
   if (conditions.length > 0) query = query.where(and(...conditions));
 
@@ -255,7 +259,8 @@ router.post("/songs/:id/save", async (req, res): Promise<void> => {
     duration: original.duration, coverUrl: original.coverUrl,
     source: original.source, sourceUrl: original.sourceUrl,
     storageType: "limited", category: original.category,
-    tags: original.tags, userId, isPublic: false, expiresAt, voteCount: 0,
+    tags: original.tags, lyrics: original.lyrics ?? null,
+    userId, isPublic: false, expiresAt, voteCount: 0,
   }).returning();
 
   res.status(201).json(toSongResponse(song));

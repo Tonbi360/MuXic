@@ -11,6 +11,7 @@ category?: string;
 storageType?: string;
 sort?: string;
 search?: string;
+lyricsSearch?: string;
 limit?: number;
 offset?: number;
 };

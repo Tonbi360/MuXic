@@ -9,6 +9,8 @@
 export interface UserProfile {
   userId: string;
   displayName: string;
+  /** @nullable */
+  avatarUrl?: string | null;
   reputation: number;
   badgeCount: number;
   badges?: string[];

@@ -31,10 +31,22 @@ export default function SearchPage() {
     { query: { enabled: !!submitted && tab === "youtube", queryKey: ["searchYoutube", submitted] } }
   );
 
-  // On App search uses the songs already in the platform DB (any user)
-  const { data: appResults, isLoading: appLoading } = useListSongs(
-    { search: submitted, limit: 50 },
-    { query: { enabled: !!submitted && tab === "app", queryKey: ["appSearch", submitted] } }
+  const [appSearchMode, setAppSearchMode] = useState<"title" | "lyrics">("title");
+
+  // On App: title/artist search — only show public songs + user's own
+  const { data: appTitleRaw, isLoading: appTitleLoading } = useListSongs(
+    { search: submitted, limit: 100 },
+    { query: { enabled: !!submitted && tab === "app" && appSearchMode === "title", queryKey: ["appSearch", submitted] } }
+  );
+  // On App: lyrics search
+  const { data: appLyricsRaw, isLoading: appLyricsLoading } = useListSongs(
+    { lyricsSearch: submitted, limit: 100 },
+    { query: { enabled: !!submitted && tab === "app" && appSearchMode === "lyrics", queryKey: ["appLyricsSearch", submitted] } }
+  );
+  const appResultsRaw = appSearchMode === "lyrics" ? appLyricsRaw : appTitleRaw;
+  const appLoading = appSearchMode === "lyrics" ? appLyricsLoading : appTitleLoading;
+  const appResults = (appResultsRaw ?? []).filter(
+    (s) => s.isPublic || s.userId === userId
   );
 
   const importMutation = useImportFromSearch();
@@ -142,23 +154,41 @@ export default function SearchPage() {
       </form>
 
       {/* Source Tabs */}
-      <div className="flex gap-1 bg-muted p-1 rounded-lg w-fit">
-        <button
-          key="youtube"
-          data-testid="tab-youtube"
-          onClick={() => setTab("youtube")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "youtube" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-        >
-          <Youtube className="w-4 h-4" /> YouTube
-        </button>
-        <button
-          key="app"
-          data-testid="tab-app"
-          onClick={() => setTab("app")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "app" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-        >
-          <AppWindow className="w-4 h-4" /> On App
-        </button>
+      <div className="flex flex-wrap gap-2 items-center">
+        <div className="flex gap-1 bg-muted p-1 rounded-lg w-fit">
+          <button
+            key="youtube"
+            data-testid="tab-youtube"
+            onClick={() => setTab("youtube")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "youtube" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            <Youtube className="w-4 h-4" /> YouTube
+          </button>
+          <button
+            key="app"
+            data-testid="tab-app"
+            onClick={() => setTab("app")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "app" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            <AppWindow className="w-4 h-4" /> On App
+          </button>
+        </div>
+        {tab === "app" && (
+          <div className="flex gap-1 bg-muted p-1 rounded-lg w-fit">
+            <button
+              onClick={() => setAppSearchMode("title")}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${appSearchMode === "title" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Title / Artist
+            </button>
+            <button
+              onClick={() => setAppSearchMode("lyrics")}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${appSearchMode === "lyrics" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Lyrics
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Results */}

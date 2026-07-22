@@ -43,6 +43,8 @@ export interface Song {
   storageType: SongStorageType;
   category: string;
   tags?: string[];
+  /** @nullable */
+  lyrics?: string | null;
   userId: string;
   /** @nullable */
   expiresAt?: string | null;
@@ -283,6 +285,8 @@ export interface ActivityItem {
 export interface UserProfile {
   userId: string;
   displayName: string;
+  /** @nullable */
+  avatarUrl?: string | null;
   reputation: number;
   badgeCount: number;
   badges?: string[];
@@ -293,16 +297,31 @@ export interface UserProfile {
 
 export interface UserInput {
   displayName: string;
+  avatarUrl?: string;
 }
+
+export type InboxItemType = typeof InboxItemType[keyof typeof InboxItemType];
+
+
+export const InboxItemType = {
+  song: 'song',
+  playlist: 'playlist',
+} as const;
 
 export interface InboxItem {
   id: number;
+  type?: InboxItemType;
   fromUserId: string;
   /** @nullable */
   fromUserName?: string | null;
   toUserId: string;
-  songId: number;
-  song: Song;
+  /** @nullable */
+  songId?: number | null;
+  song?: Song;
+  /** @nullable */
+  playlistId?: number | null;
+  /** @nullable */
+  playlistName?: string | null;
   /** @nullable */
   message?: string | null;
   createdAt: string;
@@ -312,6 +331,13 @@ export interface ShareInput {
   fromUserId: string;
   toUserId: string;
   songId: number;
+  message?: string;
+}
+
+export interface SharePlaylistInput {
+  fromUserId: string;
+  toUserId: string;
+  playlistId: number;
   message?: string;
 }
 
@@ -331,6 +357,7 @@ category?: string;
 storageType?: string;
 sort?: string;
 search?: string;
+lyricsSearch?: string;
 limit?: number;
 offset?: number;
 };

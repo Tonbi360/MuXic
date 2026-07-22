@@ -6,6 +6,7 @@ export const usersTable = pgTable("users", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull().unique(),
   displayName: text("display_name").notNull(),
+  avatarUrl: text("avatar_url"),
   reputation: integer("reputation").notNull().default(0),
   badges: text("badges").array().notNull().default([]),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

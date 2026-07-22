@@ -103,6 +103,19 @@ router.get("/search/soundcloud", async (req, res): Promise<void> => {
   res.json(results);
 });
 
+async function fetchLyricsFromLrclib(title: string, artist: string): Promise<string | null> {
+  try {
+    const url = `https://lrclib.net/api/search?track_name=${encodeURIComponent(title)}&artist_name=${encodeURIComponent(artist)}`;
+    const resp = await fetch(url, { signal: AbortSignal.timeout(5000) });
+    if (!resp.ok) return null;
+    const results = await resp.json() as Array<{ plainLyrics?: string; syncedLyrics?: string }>;
+    if (!Array.isArray(results) || results.length === 0) return null;
+    return results[0].plainLyrics ?? results[0].syncedLyrics ?? null;
+  } catch {
+    return null;
+  }
+}
+
 router.post("/search/import", async (req, res): Promise<void> => {
   const parsed = ImportFromSearchBody.safeParse(req.body);
   if (!parsed.success) {
@@ -128,6 +141,9 @@ router.post("/search/import", async (req, res): Promise<void> => {
 
   const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
 
+  // Fetch lyrics in background (non-blocking for import speed)
+  const lyrics = await fetchLyricsFromLrclib(d.title, d.artist);
+
   const [song] = await db
     .insert(songsTable)
     .values({
@@ -141,6 +157,7 @@ router.post("/search/import", async (req, res): Promise<void> => {
       storageType: "limited",
       category: d.category ?? "general",
       tags: [],
+      lyrics: lyrics ?? null,
       userId: d.userId,
       isPublic: false,
       expiresAt,

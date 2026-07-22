@@ -69,6 +69,10 @@ paths:
           in: query
           schema:
             type: string
+        - name: lyricsSearch
+          in: query
+          schema:
+            type: string
         - name: limit
           in: query
           schema:
@@ -814,6 +818,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/InboxItem"
 
+  /users/share-playlist:
+    post:
+      operationId: sharePlaylist
+      tags: [users]
+      summary: Share a playlist with another user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SharePlaylistInput"
+      responses:
+        "201":
+          description: Shared
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxItem"
+
   # ── Stats / Dashboard ──────────────────────────────────────────────────────
 
   /stats:
@@ -890,6 +913,8 @@ components:
           type: array
           items:
             type: string
+        lyrics:
+          type: ["string", "null"]
         userId:
           type: string
         expiresAt:
@@ -1255,6 +1280,8 @@ components:
           type: string
         displayName:
           type: string
+        avatarUrl:
+          type: ["string", "null"]
         reputation:
           type: integer
         badgeCount:
@@ -1276,13 +1303,18 @@ components:
       properties:
         displayName:
           type: string
+        avatarUrl:
+          type: string
 
     InboxItem:
       type: object
-      required: [id, fromUserId, toUserId, songId, song, createdAt]
+      required: [id, fromUserId, toUserId, createdAt]
       properties:
         id:
           type: integer
+        type:
+          type: string
+          enum: [song, playlist]
         fromUserId:
           type: string
         fromUserName:
@@ -1290,9 +1322,13 @@ components:
         toUserId:
           type: string
         songId:
-          type: integer
+          type: ["integer", "null"]
         song:
           $ref: "#/components/schemas/Song"
+        playlistId:
+          type: ["integer", "null"]
+        playlistName:
+          type: ["string", "null"]
         message:
           type: ["string", "null"]
         createdAt:
@@ -1307,6 +1343,19 @@ components:
         toUserId:
           type: string
         songId:
+          type: integer
+        message:
+          type: string
+
+    SharePlaylistInput:
+      type: object
+      required: [fromUserId, toUserId, playlistId]
+      properties:
+        fromUserId:
+          type: string
+        toUserId:
+          type: string
+        playlistId:
           type: integer
         message:
           type: string

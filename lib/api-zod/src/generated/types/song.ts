@@ -23,6 +23,8 @@ export interface Song {
   storageType: SongStorageType;
   category: string;
   tags?: string[];
+  /** @nullable */
+  lyrics?: string | null;
   userId: string;
   /** @nullable */
   expiresAt?: string | null;
