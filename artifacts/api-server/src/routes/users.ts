@@ -145,7 +145,9 @@ router.get("/users/:userId/inbox", async (req, res): Promise<void> => {
   const items = await db.select().from(inboxTable).where(eq(inboxTable.toUserId, params.data.userId));
   const result = await Promise.all(
     items.map(async (item) => {
-      const [song] = await db.select().from(songsTable).where(eq(songsTable.id, item.songId));
+      const [song] = item.songId
+        ? await db.select().from(songsTable).where(eq(songsTable.id, item.songId))
+        : [undefined];
       const [fromUser] = await db.select().from(usersTable).where(eq(usersTable.userId, item.fromUserId));
       return {
         id: item.id,
@@ -252,7 +254,9 @@ router.post("/users/share", async (req, res): Promise<void> => {
     message: message ?? null,
   }).returning();
 
-  const [song] = await db.select().from(songsTable).where(eq(songsTable.id, item.songId));
+  const [song] = item.songId
+    ? await db.select().from(songsTable).where(eq(songsTable.id, item.songId))
+    : [undefined];
   const [fromUser] = await db.select().from(usersTable).where(eq(usersTable.userId, item.fromUserId));
 
   res.status(201).json({

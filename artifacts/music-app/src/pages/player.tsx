@@ -169,7 +169,7 @@ export default function PlayerPage() {
 
       {/* Song info */}
       <div className="text-center w-full max-w-xs">
-        <h2 className="text-2xl font-bold font-serif truncate">{currentSong.title}</h2>
+         <h2 className="text-2xl font-bold font-serif line-clamp-2">{currentSong.title}</h2>
         <p className="text-muted-foreground mt-1 truncate">{currentSong.artist}</p>
         {currentSong.album && <p className="text-xs text-muted-foreground mt-0.5 truncate">{currentSong.album}</p>}
       </div>
@@ -278,9 +278,9 @@ export default function PlayerPage() {
         <div className="flex items-center gap-2">
           <Moon className="w-4 h-4 text-muted-foreground" />
           <span className="text-sm text-muted-foreground">Sleep timer</span>
-          {sleepLeft !== null && (
-            <span className="text-sm text-primary font-medium ml-auto">
-              {Math.floor(sleepLeft / 60)}:{String(sleepLeft % 60).padStart(2, "0")}
+           {sleepLeft !== null && (
+             <span className="text-sm text-primary font-medium ml-auto bg-primary/10 px-2 py-0.5 rounded-full">
+               stops in {Math.floor(sleepLeft / 60)}:{String(sleepLeft % 60).padStart(2, "0")}
             </span>
           )}
         </div>
@@ -303,14 +303,14 @@ export default function PlayerPage() {
             onClick={() => { setSleepMinutes(null); setSleepLeft(null); }}
             className="mt-2 w-full py-1.5 bg-muted text-muted-foreground hover:text-foreground rounded-lg text-xs font-medium transition-colors"
           >
-            Cancel timer
+             Turn off sleep timer
           </button>
         )}
       </div>
 
       {/* Source badge */}
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <span className="px-2 py-0.5 bg-muted rounded-full capitalize">{currentSong.source}</span>
+         <span className="px-2 py-0.5 bg-muted rounded-full">{currentSong.source === "youtube" ? "YouTube" : currentSong.source}</span>
         <span className="px-2 py-0.5 bg-muted rounded-full capitalize">{currentSong.storageType.replace("_", " ")}</span>
       </div>
 
