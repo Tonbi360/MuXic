@@ -9,6 +9,7 @@ import { usePlayer } from "@/hooks/use-player";
 import { getUserId } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { Radio, Play, Plus, Music2, Archive, X, PlayCircle, BookmarkPlus, Check, ListPlus } from "lucide-react";
+import { decodeHtmlEntities } from "@/lib/utils";
 
 type Tab = "today" | "archive";
 
@@ -67,7 +68,7 @@ export default function DailyPage() {
     const songs = (daily ?? []).map((e) => e.song).filter(Boolean) as NonNullable<typeof daily>[number]["song"][];
     if (songs.length === 0) return;
     playAll(songs as Parameters<typeof playAll>[0]);
-    toast({ title: `Playing today's playlist (${songs.length} songs)` });
+     toast({ title: `Playing today's playlist (${songs.length === 1 ? "1 song" : `${songs.length} songs`})` });
   }
 
   async function handleSaveToLibrary(songId: number, title: string) {
@@ -144,7 +145,7 @@ export default function DailyPage() {
             <p className="text-sm font-medium">Choose one song for today</p>
             <button onClick={() => setShowSubmit(false)}><X className="w-4 h-4 text-muted-foreground" /></button>
           </div>
-          <div className="max-h-48 overflow-y-auto space-y-1">
+           <div className="max-h-48 overflow-y-auto space-y-1">
             {userSongs.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">No songs in your library yet</p>
             ) : (
@@ -155,9 +156,15 @@ export default function DailyPage() {
                   onClick={() => setSelectedSongId(song.id)}
                   className={`w-full flex items-center gap-3 p-2 rounded-lg text-left transition-colors ${selectedSongId === song.id ? "bg-primary/20 border border-primary" : "hover:bg-muted"}`}
                 >
-                  <Music2 className="w-4 h-4 text-muted-foreground shrink-0" />
+                   {song.coverUrl ? (
+                     <img src={song.coverUrl} alt="" className="w-10 h-10 rounded object-cover shrink-0" />
+                   ) : (
+                     <div className="w-10 h-10 bg-muted rounded flex items-center justify-center shrink-0">
+                       <Music2 className="w-4 h-4 text-muted-foreground" />
+                     </div>
+                   )}
                   <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{song.title}</p>
+                     <p className="text-sm font-medium truncate">{decodeHtmlEntities(song.title)}</p>
                     <p className="text-xs text-muted-foreground truncate">{song.artist}</p>
                   </div>
                 </button>
@@ -217,7 +224,7 @@ export default function DailyPage() {
                 <div
                   key={entry.id}
                   data-testid={`daily-song-${entry.id}`}
-                  className="w-full bg-card border border-border rounded-xl p-4 flex items-center gap-4 hover:border-primary/40 transition-colors"
+                   className="w-full bg-card border border-border rounded-xl p-3 sm:p-4 flex flex-wrap items-center gap-3 hover:border-primary/40 transition-colors min-w-0"
                 >
                   {entry.song?.coverUrl ? (
                     <img src={entry.song.coverUrl} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />
@@ -227,7 +234,7 @@ export default function DailyPage() {
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold truncate">{entry.song?.title}</p>
+                     <p className="font-semibold truncate">{decodeHtmlEntities(entry.song?.title)}</p>
                     <p className="text-sm text-muted-foreground truncate">{entry.song?.artist}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       by{" "}
@@ -236,7 +243,7 @@ export default function DailyPage() {
                       </span>
                     </p>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
+                   <div className="flex items-center gap-1.5 shrink-0 w-full sm:w-auto justify-end">
                     <button
                       onClick={() => entry.song && playSong(entry.song)}
                       className="p-2 bg-muted rounded-lg hover:bg-muted/80 transition-colors"

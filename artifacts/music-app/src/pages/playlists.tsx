@@ -14,6 +14,7 @@ import { usePlayer } from "@/hooks/use-player";
 import { getUserId } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { ListMusic, Plus, Trash2, Play, ChevronRight, Music2, X, PlusCircle, ListPlus, AlertTriangle } from "lucide-react";
+import { decodeHtmlEntities, pluralize } from "@/lib/utils";
 
 export default function PlaylistsPage() {
   const userId = getUserId();
@@ -162,7 +163,7 @@ export default function PlaylistsPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold truncate">{pl.name}</p>
-                    <p className="text-xs text-muted-foreground">{pl.songCount} songs</p>
+                    <p className="text-xs text-muted-foreground">{pluralize(pl.songCount, "song")}</p>
                   </div>
                   <div className="flex items-center gap-1">
                     {confirmDeleteId === pl.id ? null : (
@@ -255,7 +256,7 @@ export default function PlaylistsPage() {
                             <Music2 className="w-4 h-4 text-muted-foreground shrink-0" />
                           )}
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium truncate">{song.title}</p>
+                            <p className="font-medium truncate">{decodeHtmlEntities(song.title)}</p>
                             <p className="text-xs text-muted-foreground truncate">{song.artist}</p>
                           </div>
                           {alreadyIn ? (
@@ -293,7 +294,7 @@ export default function PlaylistsPage() {
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{song.title}</p>
+                        <p className="text-sm font-medium truncate">{decodeHtmlEntities(song.title)}</p>
                       <p className="text-xs text-muted-foreground truncate">{song.artist}</p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">

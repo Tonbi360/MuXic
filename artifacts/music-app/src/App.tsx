@@ -23,7 +23,7 @@ import {
   Home, Search, ListMusic, Mic2,
   MessageSquare, UserCircle,
   PlayCircle, Pause, SkipForward, Trophy, Radio,
-  Menu, X, AlertTriangle, Trash2, Library,
+  Menu, X, AlertTriangle, Trash2, Library, ChevronUp,
 } from "lucide-react";
 
 // Wire up the user-id getter so every API call carries X-User-Id
@@ -46,7 +46,7 @@ function MiniPlayer() {
           </div>
         )}
         <div className="truncate">
-          <Link href="/player" className="hover:underline text-sm font-semibold block truncate">
+           <Link href="/player" className="hover:underline text-sm font-semibold block line-clamp-2">
             {currentSong.title}
           </Link>
           <span className="text-xs text-muted-foreground truncate block">{currentSong.artist}</span>
@@ -70,7 +70,8 @@ function MiniPlayer() {
       </div>
       <div className="w-1/3 flex justify-end">
         <Link href="/player" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-          Full player
+           <span className="sr-only">Full player</span>
+           <ChevronUp className="w-4 h-4" />
         </Link>
       </div>
     </div>

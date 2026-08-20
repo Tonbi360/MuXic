@@ -1,5 +1,6 @@
 import { useGetStats, useGetTrending, useGetDailyPlaylist, useGetQueue } from "@workspace/api-client-react";
 import { usePlayer } from "@/hooks/use-player";
+import { decodeHtmlEntities, pluralize } from "@/lib/utils";
 import { Music2, Users, ThumbsUp, Radio, ListMusic, MessageSquare } from "lucide-react";
 
 function StatCard({ label, value, icon: Icon }: { label: string; value: number; icon: React.ElementType }) {
@@ -40,11 +41,11 @@ function SongRow({ rank, song, voteCount, onClick }: {
         </div>
       )}
       <div className="flex-1 min-w-0">
-        <p className="font-medium truncate text-sm">{song.title}</p>
+         <p className="font-medium truncate text-sm">{decodeHtmlEntities(song.title)}</p>
         <p className="text-xs text-muted-foreground truncate">{song.artist}</p>
       </div>
       {voteCount !== undefined && (
-        <span className="text-xs text-primary font-semibold shrink-0 ml-1">{voteCount}v</span>
+         <span className="text-xs text-primary font-semibold shrink-0 ml-1">{pluralize(voteCount, "vote")}</span>
       )}
     </button>
   );
@@ -73,10 +74,10 @@ export default function HomePage() {
         </div>
       ) : stats ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatCard label="Songs" value={stats.totalSongs} icon={Music2} />
-          <StatCard label="Members" value={stats.totalUsers} icon={Users} />
-          <StatCard label="Votes" value={stats.totalVotes} icon={ThumbsUp} />
-          <StatCard label="Forum Posts" value={stats.forumMessages} icon={MessageSquare} />
+          {stats.totalSongs > 0 && <StatCard label="Songs" value={stats.totalSongs} icon={Music2} />}
+          {stats.totalUsers > 0 && <StatCard label="Members" value={stats.totalUsers} icon={Users} />}
+          {stats.totalVotes > 0 && <StatCard label="Votes" value={stats.totalVotes} icon={ThumbsUp} />}
+          {stats.forumMessages > 0 && <StatCard label="Forum Posts" value={stats.forumMessages} icon={MessageSquare} />}
         </div>
       ) : null}
 

@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getUserId } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { usePlayer } from "@/hooks/use-player";
-import { UserCircle, Star, Music2, Award, Inbox, Play, Edit2, Check, MessageSquare, Radio, Trophy, History, Camera, X, Link as LinkIcon } from "lucide-react";
+import { UserCircle, Star, Music2, Award, Inbox, Play, Edit2, Check, MessageSquare, Radio, Trophy, History, Camera, X, Link as LinkIcon, ListMusic } from "lucide-react";
 
 const BADGE_COLORS: Record<string, string> = {
   Lyricist: "bg-purple-500/20 text-purple-400",

@@ -9,12 +9,13 @@ import {
 } from "@/components/ui/select";
 import { Music2, Play, Trash2, ArrowUp, Clock, Search, Share2, X, Send, ListPlus } from "lucide-react";
 import type { Song } from "@workspace/api-client-react";
+import { decodeHtmlEntities, isSongExpired } from "@/lib/utils";
 
 const STORAGE_LABELS: Record<string, string> = {
-  limited: "Limited",
-  permanent: "Permanent",
-  public_limited: "Public Limited",
-  public_download: "Public Download",
+  limited: "Borrowed · 48h",
+  permanent: "Saved forever",
+  public_limited: "Shared",
+  public_download: "Downloadable",
 };
 
 const STORAGE_COLORS: Record<string, string> = {
@@ -200,6 +201,25 @@ export default function LibraryPage() {
     });
   }
 
+  function handlePlay(song: Song) {
+    if (isSongExpired(song)) {
+      toast({ title: "Song expired", description: "Keep this song permanently before playing it.", variant: "destructive" });
+      return;
+    }
+    playSong(song);
+  }
+
+  function handlePlayAll() {
+    const playable = sortedSongs.filter((song) => !isSongExpired(song));
+    const skipped = sortedSongs.length - playable.length;
+    if (playable.length === 0) {
+      toast({ title: "Nothing playable", description: `No playable songs (${skipped} expired).` });
+      return;
+    }
+    playAll(playable);
+    if (skipped > 0) toast({ title: `Skipped ${skipped} expired song${skipped === 1 ? "" : "s"}.` });
+  }
+
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       {sharingSong && (
@@ -213,7 +233,7 @@ export default function LibraryPage() {
         </div>
         {sortedSongs.length > 0 && (
           <button
-            onClick={() => playAll(sortedSongs)}
+            onClick={handlePlayAll}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity shrink-0"
           >
             <ListPlus className="w-4 h-4" /> Play All
@@ -222,7 +242,7 @@ export default function LibraryPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3">
+       <div className="flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-48">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
@@ -304,10 +324,10 @@ export default function LibraryPage() {
       ) : (
         <div className="space-y-2">
           {sortedSongs.map((song) => (
-            <div
+             <div
               key={song.id}
               data-testid={`song-card-${song.id}`}
-              className="bg-card border border-border rounded-xl p-4 flex items-center gap-3 hover:border-primary/30 transition-colors"
+               className={`bg-card border border-border rounded-xl p-3 sm:p-4 flex flex-wrap items-center gap-3 hover:border-primary/30 transition-colors min-w-0 ${isSongExpired(song) ? "opacity-60" : ""}`}
             >
               {song.coverUrl ? (
                 <img src={song.coverUrl} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />
@@ -317,19 +337,20 @@ export default function LibraryPage() {
                 </div>
               )}
               <div className="min-w-0 flex-1 overflow-hidden">
-                <p className="font-semibold truncate">{song.title}</p>
+             <p className="font-semibold truncate">{decodeHtmlEntities(song.title)}</p>
                 <p className="text-sm text-muted-foreground truncate">{song.artist}</p>
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
+             <div className="flex items-center gap-2 mt-1 flex-wrap min-w-0">
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STORAGE_COLORS[song.storageType] ?? "text-muted-foreground bg-muted"}`}>
                     {STORAGE_LABELS[song.storageType] ?? song.storageType}
                   </span>
                   <CountdownTimer expiresAt={song.expiresAt ?? null} />
                 </div>
               </div>
-              <div className="flex gap-1.5 shrink-0">
+               <div className="flex gap-1.5 shrink-0 w-full sm:w-auto justify-end">
                 <button
                   data-testid={`button-play-song-${song.id}`}
-                  onClick={() => playSong(song)}
+                   onClick={() => handlePlay(song)}
+                   disabled={isSongExpired(song)}
                   className="p-2 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
                   title="Play"
                 >
@@ -349,9 +370,9 @@ export default function LibraryPage() {
                     onClick={() => handlePromote(song, "permanent")}
                     disabled={promoteMutation.isPending}
                     className="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
-                    title="Make permanent"
+                   title="Save permanently"
                   >
-                    <ArrowUp className="w-4 h-4" />
+                     <ArrowUp className="w-4 h-4" />
                   </button>
                 )}
                 <button

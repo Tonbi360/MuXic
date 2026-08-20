@@ -10,6 +10,7 @@ import { getUserId } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { Search, Music2, Download, Play, Youtube, AppWindow, BookmarkPlus, Check } from "lucide-react";
 import type { SearchResult } from "@workspace/api-client-react";
+import { decodeHtmlEntities } from "@/lib/utils";
 
 void _unused;
 
@@ -140,7 +141,7 @@ export default function SearchPage() {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={tab === "youtube" ? "Search YouTube for a song or artist…" : "Search songs already on MuXic…"}
+             placeholder={tab === "youtube" ? "Search YouTube…" : "Title, artist, or lyrics"}
             className="w-full pl-10 pr-4 py-3 bg-card border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
           />
         </div>
@@ -235,7 +236,7 @@ export default function SearchPage() {
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold truncate">{result.title}</p>
+             <p className="font-semibold truncate">{decodeHtmlEntities(result.title)}</p>
                   <p className="text-sm text-muted-foreground truncate">{result.artist}</p>
                   {result.duration && (
                     <p className="text-xs text-muted-foreground mt-1">{formatDuration(result.duration)}</p>
@@ -311,7 +312,7 @@ export default function SearchPage() {
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold truncate">{song.title}</p>
+             <p className="font-semibold truncate">{decodeHtmlEntities(song.title)}</p>
                     <p className="text-sm text-muted-foreground truncate">{song.artist}</p>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-[10px] px-1.5 py-0.5 bg-muted rounded-full text-muted-foreground capitalize">

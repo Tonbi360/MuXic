@@ -8,6 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { usePlayer } from "@/hooks/use-player";
 import { getUserId } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
+import { decodeHtmlEntities, pluralize } from "@/lib/utils";
 import { ThumbsUp, Music2, Play, Flame, Trophy, Radio, BookmarkPlus, ListPlus, PlayCircle, Check } from "lucide-react";
 
 type Tab = "hot" | "legends" | "mini";
@@ -36,7 +37,7 @@ export default function SongboardPage() {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListSongBoardQueryKey({ tab }) });
-          toast({ title: "Voted!" });
+           toast({ title: "Vote locked in ✓", description: "Votes are final." });
         },
         onError: (err: unknown) => {
           const msg = (err as { data?: { error?: string } })?.data?.error;
@@ -80,8 +81,11 @@ export default function SongboardPage() {
   }
 
   function handlePlayAll() {
-    const songs = (entries ?? []).map((e) => e.song).filter(Boolean) as NonNullable<typeof entries>[number]["song"][];
-    if (songs.length === 0) return;
+     const songs = (entries ?? []).map((e) => e.song).filter(Boolean) as NonNullable<typeof entries>[number]["song"][];
+     if (songs.length === 0) {
+       toast({ title: "Nothing playable", description: "There are no playable songs on this board." });
+       return;
+     }
     playAll(songs as Parameters<typeof playAll>[0]);
     toast({ title: `Playing all ${songs.length} songs` });
   }
@@ -145,7 +149,7 @@ export default function SongboardPage() {
       ) : (
         <div className="space-y-2">
           {entries.map((entry, i) => {
-            const nominatorName = userMap.get(entry.nominatedBy) ?? entry.nominatedBy.slice(0, 8) + "…";
+             const nominatorName = userMap.get(entry.nominatedBy) ?? entry.nominatedBy.slice(0, 8) + "…";
             const isMe = entry.nominatedBy === userId;
             const isPublic = entry.song?.storageType === "public_limited" || entry.song?.storageType === "public_download";
             const alreadySaved = savedIds.has(entry.songId) || entry.song?.userId === userId;
@@ -153,7 +157,7 @@ export default function SongboardPage() {
               <div
                 key={entry.id}
                 data-testid={`board-entry-${entry.id}`}
-                className="bg-card border border-border rounded-xl p-4 flex items-center gap-4 hover:border-primary/30 transition-colors"
+                 className="bg-card border border-border rounded-xl p-3 sm:p-4 flex flex-wrap items-center gap-3 hover:border-primary/30 transition-colors min-w-0"
               >
                 {tab !== "mini" && (
                   <span className="text-xl font-bold font-serif text-muted-foreground w-7 shrink-0 text-center">
@@ -168,16 +172,16 @@ export default function SongboardPage() {
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold truncate">{entry.song?.title}</p>
+                   <p className="font-semibold truncate">{decodeHtmlEntities(entry.song?.title)}</p>
                   <p className="text-sm text-muted-foreground truncate">{entry.song?.artist}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
+                     <p className="text-xs text-muted-foreground mt-0.5 truncate">
                     nominated by{" "}
                     <span className={isMe ? "text-primary font-medium" : ""}>
                       {isMe ? "you" : nominatorName}
                     </span>
                   </p>
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0 relative">
+                 <div className="flex items-center gap-1.5 shrink-0 relative w-full sm:w-auto sm:ml-auto justify-end">
                   <button
                     data-testid={`button-play-board-${entry.id}`}
                     onClick={() => entry.song && playSong(entry.song)}
@@ -200,8 +204,8 @@ export default function SongboardPage() {
                     </button>
                   )}
                   {alreadySaved && (
-                    <span className="p-2 text-primary" title="In your library">
-                      <Check className="w-4 h-4" />
+                       <span className="inline-flex items-center gap-1 p-2 text-primary text-xs" title="Already in your library">
+                       <Check className="w-4 h-4" /><span className="hidden sm:inline">Saved</span>
                     </span>
                   )}
 
@@ -245,7 +249,7 @@ export default function SongboardPage() {
                     } disabled:opacity-60`}
                   >
                     <ThumbsUp className="w-4 h-4" />
-                    <span>{entry.voteCount}</span>
+                     <span>{entry.userVoted ? "Voted" : pluralize(entry.voteCount, "vote")}</span>
                   </button>
                 </div>
               </div>
